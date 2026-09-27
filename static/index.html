@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('glass_theme')||'dark'}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#e8eaee;--paper:#f4f6fa;--card:#fff;--glass:rgba(255,255,255,.26);--glassline:rgba(255,255,255,.85);--glasshl:rgba(255,255,255,.98);--ink:#1c1c1a;--ink2:#32322e;--muted:#54544e;--line:#e6e4dc;--line2:#d3d0c5;--acc:#111114;--acc-ink:#111114;--acc-soft:#ececee;--teal:#0f766e;--teal-soft:#e6f4f2;--amber:#a16207;--amber-soft:#fef9c3;--red:#b91c1c;--red-soft:#fee2e2;--green:#15803d;--green-soft:#dcfce7;--hl:#fde68a;--shadow:0 1px 2px rgba(28,28,26,.04),0 4px 14px rgba(28,28,26,.05);--r:20px;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--top:#17171a;--topline:#2a2a2e;--paperbox:#fff;--ch-axis:#aab3bd;--ch-text:#4d5866;--ch-faint:#c9c5b9;--ch-curve:#26262a;--topbg:rgba(255,255,255,.62);--topink:#1b1e24;--topmuted:#494d55;--tophover:#e6e8ec;--topactive:#d9dce2;--topborder:rgba(20,25,35,.12);--topbtnline:#c3c6cd;--pbtnbg:#17171a;--pbtnink:#fff;--pbtnhover:#2d2d33}
+[data-theme="dark"]{--bg:#06070b;--paper:#17181d;--card:#191a20;--glass:rgba(18,20,28,.34);--glassline:rgba(255,255,255,.14);--glasshl:rgba(255,255,255,.08);--ink:#ecece8;--ink2:#d6d6cf;--muted:#b9b9b1;--line:#2e2e34;--line2:#3d3d45;--acc:#f5f5f2;--acc-ink:#f5f5f2;--acc-soft:#2c2c31;--teal:#2dd4bf;--teal-soft:#123f3a;--amber:#eab308;--amber-soft:#37300e;--red:#f87171;--red-soft:#3d1a1a;--green:#4ade80;--green-soft:#143620;--hl:#8a6d1f;--shadow:0 1px 2px rgba(0,0,0,.35),0 6px 20px rgba(0,0,0,.4);--top:#0c0c0e;--topline:#222;--paperbox:#f7f6f2;--ch-axis:#5a5a64;--ch-text:#9a9a92;--ch-faint:#4a4a52;--ch-curve:#e8e8e4;--topbg:rgba(10,10,14,.55);--topink:#fff;--topmuted:#c5c5cc;--tophover:#26262b;--topactive:#3b3b42;--topborder:rgba(255,255,255,.08);--topbtnline:#3d3d45;--pbtnbg:#fff;--pbtnink:#17171a;--pbtnhover:#e9e8e3}
+*{box-sizing:border-box}
+::selection{background:#f59e0b;color:#111114}
+::-moz-selection{background:#f59e0b;color:#111114}
+html{scroll-behavior:smooth;scroll-padding-top:120px}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);background-image:radial-gradient(900px 520px at 82% -12%,rgba(255,255,255,.92),transparent 60%),radial-gradient(1200px 800px at 8% 22%,rgba(188,194,205,.38),transparent 55%),radial-gradient(1000px 720px at 68% 92%,rgba(168,175,188,.30),transparent 60%),linear-gradient(165deg,#f3f4f7,#e5e7eb 45%,#d7dade);background-attachment:fixed;color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
+[data-theme="dark"] body{background-image:radial-gradient(900px 520px at 82% -12%,rgba(255,255,255,.07),transparent 60%),radial-gradient(1200px 800px at 8% 22%,rgba(125,135,155,.11),transparent 55%),radial-gradient(1000px 720px at 68% 92%,rgba(95,105,125,.09),transparent 60%),linear-gradient(165deg,#111216,#08090c 45%,#030304)}
+body::after{content:"";position:fixed;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");background-size:220px 220px;opacity:.03;pointer-events:none;z-index:-1;mix-blend-mode:overlay}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+h1,h2,h3{letter-spacing:-.015em}
+button{font:inherit;font-weight:500;padding:7px 13px;border-radius:9px;border:1px solid var(--line2);background:var(--card);color:var(--ink);cursor:pointer;transition:background .12s,border-color .12s,transform .05s,box-shadow .12s}
+button:hover{box-shadow:0 1px 4px rgba(28,28,26,.10)}
+button:hover{background:var(--paper);border-color:var(--line2)}button:active{transform:translateY(1px)}
+button.primary{background:var(--acc);color:var(--card);border-color:var(--acc)}button.primary:hover{opacity:.85}
+button.small{padding:3px 10px;font-size:12px;border-radius:7px}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{font:inherit;color:var(--ink);border:1px solid var(--line2);border-radius:9px;padding:7px 10px;background:var(--card)}
+input::placeholder,textarea::placeholder{color:#8a8a93;opacity:1}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(120,120,128,.28)}
+/* ---------- top bar (dark) */
+.top{background:var(--topbg);backdrop-filter:blur(26px) saturate(1.6);-webkit-backdrop-filter:blur(26px) saturate(1.6);color:var(--topink);position:sticky;top:0;z-index:20;border-bottom:1px solid var(--topborder)}
+.top .row{max-width:1440px;margin:0 auto;padding:10px 24px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;align-items:flex-start;gap:2px;white-space:nowrap;margin-right:6px;color:var(--topink);cursor:pointer;user-select:none;border-radius:10px;padding:4px 10px 5px;transition:background .12s}
+.brand #wordmark{display:block}
+.brand:hover #wordmark{filter:drop-shadow(0 0 5px rgba(255,255,255,.45))}
+.brand:hover{background:var(--tophover)}
+:root:not([data-theme="dark"]) #wordmark g{stroke:#242833}
+:root:not([data-theme="dark"]) .brand:hover #wordmark{filter:drop-shadow(0 0 5px rgba(20,25,40,.3))}
+
+.brand small{font-weight:400;color:var(--topmuted);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;padding-left:2px}
+.tabs{display:flex;gap:2px;border-bottom:none}
+.tabs button{border:none;background:transparent;color:var(--topmuted);font-weight:600;font-size:13.5px;padding:7px 12px;border-radius:8px}
+.tabs button:hover{color:var(--topink);background:var(--tophover)}.tabs button.on{color:var(--topink);background:var(--topactive)}
+.modes{display:flex;background:#26262b;border-radius:9px;padding:3px}
+.modes button{border:none;background:transparent;padding:5px 12px;border-radius:7px;color:#a3a3ad;font-weight:600;font-size:13px}
+.modes button:hover{background:#2f2f35;color:#fff}.modes button.on{background:#fff;color:#17171a}
+.search{flex:1;min-width:320px;position:relative}
+#q{width:100%;font:14px var(--mono);padding:9px 60px 9px 38px;background:#fff;border-color:transparent;color:#17171a;caret-color:#17171a}
+.search .ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#8a8a93;display:flex}
+.search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:11px var(--mono);color:#8a8a93;border:1px solid #d9d7cf;border-radius:5px;padding:1px 5px;background:#f7f6f2}
+.top label.chk{color:var(--topmuted);font-size:13px;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.top .primary{background:var(--pbtnbg);color:var(--pbtnink);border-color:var(--pbtnbg);font-weight:600}.top .primary:hover{background:var(--pbtnhover)}
+#status{color:var(--topmuted);font-size:13px;min-width:90px;display:flex;align-items:center;gap:6px}
+.spin{width:14px;height:14px;border:2px solid rgba(120,120,130,.35);border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite;display:inline-block;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* ---------- section nav */
+#drawBtn{position:relative;display:grid;place-items:center;width:42px;height:36px;padding:0;line-height:0;background:transparent;border:1px solid var(--topbtnline);color:var(--topmuted);border-radius:9px;cursor:pointer}
+#drawBtn:hover{color:var(--topink);border-color:var(--topmuted)}
+#drawBtn::after{content:"Draw";position:absolute;left:50%;top:calc(100% + 7px);transform:translateX(-50%);font:600 11.5px var(--sans);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 9px;opacity:0;pointer-events:none;transition:opacity .12s;white-space:nowrap;z-index:40;box-shadow:var(--shadow)}
+#drawBtn:hover::after{opacity:1}
+.subnav{background:color-mix(in srgb,var(--card) 82%,transparent);border-bottom:1px solid var(--line);position:sticky;top:57px;z-index:19;display:none}
+.subnav .row{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;gap:4px;align-items:center;overflow-x:auto}
+.subnav a{padding:10px 12px;color:var(--muted);font-size:13px;font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
+.subnav a:hover{text-decoration:none;color:var(--ink)}.subnav a.on{color:var(--acc-ink);border-bottom-color:var(--acc)}
+.subnav .sp{flex:1}
+.menu{position:relative}
+.menu .dd{display:none;position:absolute;right:0;top:36px;background:color-mix(in srgb,var(--card) 96%,transparent);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(28,28,26,.14);min-width:250px;padding:6px;z-index:30}
+.menu.open .dd{display:block}
+.dd button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px;border-radius:8px;font-size:13px}
+.dd button:hover{background:var(--paper)}
+.dd small{display:block;color:var(--muted);font-weight:400}
+/* ---------- layout & cards */
+main{width:100%;box-sizing:border-box;max-width:1440px;margin:0 auto;padding:20px 24px 48px;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-content:start;flex:1}
+.card{background:var(--glass);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);border:1px solid var(--glassline);border-radius:var(--r);padding:18px 20px;min-width:0;box-shadow:var(--shadow),inset 0 1px 0 var(--glasshl);position:relative;transition:box-shadow .18s}
+.card:hover{box-shadow:0 2px 4px rgba(28,28,26,.05),0 10px 28px rgba(28,28,26,.08)}
+.card::before{content:"";position:absolute;inset:0 auto auto 0;width:100%;height:3px;border-radius:var(--r) var(--r) 0 0;background:linear-gradient(90deg,rgba(255,255,255,.0),rgba(255,255,255,.55),rgba(255,255,255,0));opacity:0;transition:opacity .18s}
+.card:hover::before{opacity:.55}
+.card h2{font-size:15px;font-weight:700;margin:0 0 12px;color:var(--ink);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.card h2 .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--acc-soft);color:var(--acc-ink)}
+.card h2 .ic.teal{background:var(--teal-soft);color:var(--teal)}.card h2 .ic.amber{background:var(--amber-soft);color:var(--amber)}
+.card h2 .sub{font-weight:400;color:var(--muted);font-size:13px}
+.wide{grid-column:1/-1}
+table{border-collapse:collapse;width:100%;font-size:13px}
+td,th{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;position:sticky;top:0;background:var(--card);z-index:1}
+tbody tr:last-child td{border-bottom:none}
+.mono{font-family:var(--mono);word-break:break-all;font-size:12.5px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.8}
+.badge.ok{background:var(--green-soft);color:var(--green)}.badge.warn{background:var(--amber-soft);color:var(--amber)}.badge.bad{background:var(--red-soft);color:var(--red)}.badge.info{background:var(--paper);color:var(--muted)}.badge.acc{background:var(--acc-soft);color:var(--acc-ink)}
+.badge.plain::before{display:none}
+.muted{color:var(--muted)}
+.copy{cursor:pointer;color:var(--acc);font-size:11.5px;margin-left:6px;opacity:.7}.copy:hover{opacity:1;text-decoration:underline}
+.warnbox{background:#fef3c7;border:1px solid #f5d98a;border-radius:10px;padding:8px 12px;margin:8px 0 0;font-size:13px;color:#6b4104}
+#error{grid-column:1/-1;background:#fee2e2;border:1px solid #f4b5b5;border-radius:var(--r);padding:14px 18px;display:none;color:#4c1414}
+#error .sugg button{margin:6px 6px 0 0}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;font-size:13.5px;align-items:baseline}
+.kv b{font-weight:500;color:var(--muted);font-size:12.5px}
+.kv .hint{font-size:12px}
+/* ---------- compound hero */
+.hero-card{grid-column:1/-1;display:grid;grid-template-columns:1fr 380px;gap:24px;background:var(--card)}
+.hero-card::before{opacity:.55}
+.hero-card .name{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.15;margin:2px 0 4px}
+.hero-card .iupac{font-size:15px;color:var(--ink2);margin-bottom:12px}
+.chips-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:var(--card);border:1px solid var(--line2);font-size:12.5px;font-weight:500}
+.pill b{font-weight:400;color:var(--muted)}
+.hero-card .thumb{background:var(--paperbox);border:1px solid var(--line);border-radius:12px;display:grid;place-items:center;min-height:240px;padding:8px;background-image:radial-gradient(#e9e7df 1px,transparent 1px);background-size:14px 14px}
+.hero-card .thumb svg{max-width:100%;height:auto}
+.idrow{display:grid;grid-template-columns:130px 1fr;gap:6px 14px;font-size:13.5px;align-items:baseline}
+.idrow b{font-weight:500;color:var(--muted);font-size:12.5px}
+/* ---------- structure */
+#struct{position:relative;display:block;width:100%}
+#struct svg{display:block;max-width:100%}
+#overlay{position:absolute;left:0;top:0;pointer-events:none}
+.hit{pointer-events:all;fill:transparent;stroke:none;cursor:pointer}
+.hit:hover,.hit.on{fill:rgba(20,20,22,.16)}
+text.loc{font:bold 13px Inter,Arial,Helvetica,sans-serif;pointer-events:none}
+text.loc.parent{fill:#17171a}text.loc.sub{fill:#8a8a93}text.loc.hetero{fill:#55554f;font-style:italic}text.loc.idx{fill:#888;font-weight:400}
+text.loc.hlab{fill:#44444a;font-size:12px}
+.namebox{font-size:18px;padding:4px 0 10px;min-height:36px;word-break:break-word;font-weight:600}
+.namebox mark{background:#e8e6da;color:#17171a;border-radius:3px;padding:0 2px}
+.toggles{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted);margin-bottom:8px}
+.toggles label{white-space:nowrap;display:flex;gap:5px;align-items:center}
+.structframe{border:1px solid var(--line);border-radius:12px;background:var(--paperbox);background-image:radial-gradient(#ecebe4 1px,transparent 1px);background-size:14px 14px;padding:10px;display:block;width:100%}
+.names tr{cursor:pointer}.names tbody tr:hover td{background:var(--paper)}.names tr.sel td{background:var(--acc-soft)}
+[data-theme="dark"] .names tr.sel td{color:var(--ink)}
+.namefilter{width:100%;margin-bottom:8px;font-size:13px}
+.ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+/* ---------- spectra */
+.spec{border:1px solid var(--glassline);border-radius:12px;background:color-mix(in srgb,var(--card) 55%,transparent);margin-bottom:16px;overflow:hidden}
+.spec .head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--paper);border-bottom:1px solid var(--line)}
+.spec .head b{font-size:13.5px;display:flex;align-items:center;gap:7px}
+.spec .head b::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.85}
+
+
+
+.spec .head .hint{margin-left:auto;text-align:right}
+.spec .body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.spec .body>div:first-child{padding:10px 8px 6px 4px;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:stretch}
+.spec .body>div:last-child{padding:10px 12px 12px}
+.structbox{border:1px solid var(--line);border-radius:10px;background:var(--paperbox);background-image:radial-gradient(#ecebe4 1px,transparent 1px);background-size:14px 14px;margin-bottom:10px;padding:4px}
+.lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px;font-weight:600}
+#struct2,#structH{position:relative}
+#struct2 svg,#structH svg{max-width:100%;height:auto}
+#structH .hit,#struct2 .hit{pointer-events:none}
+#structH .hit.on{fill:rgba(245,158,11,.55)}#struct2 .hit.on{fill:rgba(245,158,11,.5)}
+#modiag{background:var(--paperbox);border-radius:12px;padding:6px}
+#vib3d{width:100%;height:260px;border:1px solid var(--line);border-radius:10px;position:relative;display:none;margin-bottom:8px;background:var(--paperbox)}
+#viewer3d{width:100%;height:320px;border:1px solid var(--line);border-radius:12px;position:relative;background:var(--paperbox)}
+canvas.chart{width:100%;height:220px;display:block}
+canvas.nmr{cursor:crosshair;flex:1;min-height:300px;max-height:440px;height:100%}
+tr.pk,tr.mode{cursor:pointer}
+tr.pk.hl td,tr.mode.hl td{background:#fef9e7;color:#17171a}
+tr.pk.hl td .hint,tr.pk.hl td .muted,tr.mode.hl td .hint{color:#55554f}
+tr.pk.sel td,tr.mode.sel td{background:#fde68a;color:#17171a}
+tr.pk.sel td .hint,tr.pk.sel td .muted,tr.mode.sel td .hint{color:#55554f}
+details summary{cursor:pointer;color:var(--muted);margin:6px 0;font-size:13px;font-weight:500}
+.scroll{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px;scrollbar-width:thin;scrollbar-color:#c9c5b9 transparent}
+.scroll::-webkit-scrollbar{width:8px;height:8px}.scroll::-webkit-scrollbar-thumb{background:#d3d0c5;border-radius:4px}.scroll::-webkit-scrollbar-thumb:hover{background:#b8b4a6}
+.scroll.tall{max-height:340px}
+.hint{font-size:12px;color:var(--muted)}
+/* ---------- photoluminescence */
+.spec.pl .head{background:var(--paper)}
+.fcbox{border:1px solid var(--line);border-radius:12px;background:var(--paperbox);padding:6px}
+.plsummary{display:flex;gap:10px;flex-wrap:wrap;padding:6px 8px 2px}
+.plsummary .tile{flex:1;min-width:120px;padding:8px 10px}
+.plsummary .sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1px solid rgba(0,0,0,.15)}
+.reason{display:flex;gap:8px;font-size:12.5px;color:var(--ink2);margin:4px 0;align-items:flex-start}
+.reason::before{content:"•";color:var(--acc);font-weight:700}
+#fc text{font-family:var(--sans)}
+#fc .lvl{stroke:#9aa0a6;stroke-width:1}
+#fc .arrow{stroke-width:1.6;opacity:.14;transition:opacity .12s}
+#fc .arrow.on{opacity:1;stroke-width:3}
+#fc .arrow.base{opacity:.55;stroke-width:2}
+#fc .abs{stroke:#17171a}#fc .em{stroke:#8a8a93}
+#fc .lvl.on{stroke:#f59e0b;stroke-width:2.5}
+#fc .wf{fill:none;stroke-width:1.2;opacity:.55}
+#fc .wf.on{opacity:1;stroke-width:1.8}
+/* ---------- properties */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.tile .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.tile .v{font-size:19px;font-weight:700;letter-spacing:-.01em;margin-top:2px}
+.tile .u{font-size:12px;color:var(--muted);font-weight:500}
+.tile .e{font-size:11px;color:var(--muted)}
+.pgroup{font-size:11px;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin:12px 0 4px;grid-column:1/-1;border-bottom:1px solid var(--line);padding-bottom:3px}
+/* ---------- landing */
+#landing{grid-column:1/-1;display:none;padding:10px 0 20px;overflow:hidden}
+#landing .hero{padding:34px 0 8px;text-align:center;position:relative}
+.homoart{width:134%;max-width:none;aspect-ratio:2.94;margin:-10px -17% -40px;transform:rotate(-6deg);background:url("/static/img/hero_homo_light.svg") center/contain no-repeat;pointer-events:none}
+[data-theme="dark"] .homoart{background-image:url("/static/img/hero_homo.svg")}
+
+#landing .hero>*{position:relative}
+#landing h1{font-size:34px;margin:0 0 10px;font-weight:800;letter-spacing:-.025em}
+#landing p{color:rgba(255,255,255,.78);margin:0 auto 22px;max-width:680px;font-size:15.5px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.chip{border:1px solid var(--glassline);background:var(--glass);color:var(--ink);border-radius:999px;padding:6px 13px;font:12.5px var(--mono);cursor:pointer;transition:background .12s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.chip:hover{background:rgba(255,255,255,.22)}
+.chips .hint{color:var(--muted);align-self:center}
+.featwords{display:flex;gap:26px;justify-content:center;margin:10px auto 0}
+.featwords button{background:none;border:none;outline:none;padding:4px 2px;font:600 13.5px var(--sans);color:var(--muted);cursor:pointer;transition:color .12s;-webkit-tap-highlight-color:transparent}
+.featwords button:focus,.featwords button:focus-visible{outline:none;box-shadow:none}
+.featwords button:hover{color:var(--ink)}
+.featwords .ver{padding:4px 2px;font:600 13.5px var(--sans);color:var(--muted);cursor:default}
+.featwords button.on{color:var(--ink);text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:1.5px}
+#featblurb{visibility:hidden;max-width:600px;min-height:64px;margin:12px auto 0;font-size:13px;line-height:1.7;color:var(--ink2);text-align:center}
+/* ---------- periodic table */
+.ptctl{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:13px}
+.ptctl .brandline{display:flex;flex-direction:column;margin-right:auto}.ptctl .brandline b{font-size:16px}
+.ptwrap{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
+.ptgrid{display:grid;grid-template-columns:repeat(18,minmax(0,1fr));grid-auto-rows:minmax(64px,auto);gap:4px}
+.el{border-radius:7px;padding:4px 5px 3px;cursor:pointer;position:relative;min-height:64px;color:#17171a;border:1px solid rgba(0,0,0,.10);transition:transform .08s,box-shadow .08s;user-select:none;overflow:hidden}
+.el:hover,.el.pin{transform:translateY(-2px) scale(1.06);box-shadow:0 8px 20px rgba(28,28,26,.18);z-index:2;border-color:rgba(0,0,0,.25)}
+.el.dim{opacity:.18}
+.el .z{font-size:9px;color:rgba(0,0,0,.72);line-height:1}
+.el .sy{font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.el .nm{font-size:8.5px;color:rgba(0,0,0,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1;font-weight:500}
+.el .mv{font-size:8.5px;color:rgba(0,0,0,.72);line-height:1.1}
+.el .cf{font-size:7.5px;color:rgba(0,0,0,.62);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
+.el.dark,.el.dark .z,.el.dark .nm,.el.dark .mv,.el.dark .cf{color:#fff!important}
+.el.dark .z,.el.dark .nm,.el.dark .mv,.el.dark .cf{color:rgba(255,255,255,.82)!important}
+.el.na{background:repeating-linear-gradient(45deg,#f3f2ec 0 5px,#e6e4dc 5px 7px)!important}
+.el.gap{visibility:hidden}
+.ptlabel{grid-column:1/4;grid-row:8;height:10px}
+.ptseries{font-size:10px;color:var(--muted);align-self:center;text-align:right;padding-right:6px;grid-column:1/3}
+.ptcard{position:sticky;top:120px;border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--card);box-shadow:var(--shadow);min-height:300px}
+.ptcard .big{display:flex;align-items:baseline;gap:12px}
+.ptcard .big .sym{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.ptcard .big .zn{font-size:13px;color:var(--muted)}
+.ptcard h3{margin:2px 0 8px;font-size:18px}
+.ptcard .kv{margin-top:10px;font-size:12.5px;gap:4px 12px}
+.ptcard .cat{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;margin:4px 0 2px}
+.ptlegend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.ptlegend .bar{width:180px;height:12px;border-radius:6px;border:1px solid var(--line)}
+.ptlegend .ticks{display:flex;justify-content:space-between;width:180px;font-size:10px}
+.ptlegend .col{display:flex;flex-direction:column;gap:2px}
+.ptlegend .sw{display:inline-flex;align-items:center;gap:4px;margin-right:6px}.ptlegend .sw i{width:11px;height:11px;border-radius:3px;display:inline-block}
+@media (max-width:1100px){.ptwrap{grid-template-columns:1fr}.ptcard{position:static}}
+.ptT{display:inline-flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.ptT input[type=range]{width:220px;padding:0;border:none;background:transparent;box-shadow:none;accent-color:var(--acc)}
+.ptT #ptTval{display:inline-block;min-width:62px;text-align:right;font-size:12.5px}
+.ptT .presets{display:inline-flex;gap:4px}
+.el.liq-q{background-image:repeating-linear-gradient(45deg,transparent 0 6px,rgba(0,0,0,.04) 6px 8px)}
+/* ---------- batch */
+#batch{grid-column:1/-1;display:none}
+#batchin{width:100%;min-height:150px;font:13px var(--mono);resize:vertical}
+.stat{display:inline-flex;gap:6px;align-items:baseline;margin-right:18px}.stat b{font-size:20px}
+.grp{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+/* ---------- modal / info */
+.modal{position:fixed;inset:0;background:rgba(10,12,18,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+.modal.open{display:flex}
+.modal .box{background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid var(--glassline);border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 64px rgba(0,0,0,.3);padding:22px 26px}
+.modal .box h3{margin:0 0 4px;font-size:18px}
+.modal .close{float:right}
+.method{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0;background:var(--paper)}
+.method h4{margin:0 0 6px;font-size:14px}
+.method .row{display:grid;grid-template-columns:110px 1fr;gap:4px 12px;font-size:13px}
+.method .row b{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.method .refs{font-size:12px;color:var(--muted);margin-top:6px}
+.ib{display:inline-grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border-radius:50%;box-sizing:border-box;border:1px solid var(--line2);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;background:var(--card);margin-left:4px}
+.ib:hover{border-color:var(--acc);color:var(--acc)}
+.dl{margin-left:auto;display:flex;gap:6px;align-items:center}
+.spec .head .hint{margin-left:0}
+
+.plctl{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:4px 8px 8px;font-size:13px}
+.plctl input{width:96px}
+.plctl .fb{color:var(--ink2)}
+/* ---------- atom viewer ---------- */
+#atomModal .box{max-width:760px}
+.atomgrid{display:grid;grid-template-columns:260px 1fr;gap:18px}
+#atomShells{width:100%;height:auto}
+#atomViewer{width:100%;height:300px;border:1px solid var(--line);border-radius:12px;background:var(--paperbox);position:relative}
+.aoseg{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.aoseg button{padding:4px 12px;font-family:var(--mono);font-size:13px}
+.aoseg button.on{background:var(--acc);color:var(--card);border-color:var(--acc)}
+.el:active{transform:translateY(0) scale(1.02)}
+/* ---------- misc */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#17171a;color:#fff;padding:9px 14px;border-radius:9px;font-size:13px;opacity:0;transition:all .18s;pointer-events:none;z-index:50}
+#toast.show{opacity:1;transform:translateX(-50%)}
+.namesgrid{display:grid;grid-template-columns:3fr 2fr;gap:20px}
+.verify{margin:0;border-top:none;padding:14px;background:var(--paper);border:1px solid var(--line);border-radius:12px;align-self:start}
+.verdict{margin-top:8px;padding:10px 12px;border-radius:10px;font-size:13px;border:1px solid var(--line);background:var(--paper)}
+.verdict.identical{background:#dcfce7;border-color:#bbf7d0;color:#14321f}.verdict.same_connectivity{background:#fef9c3;border-color:#fde68a;color:#4a3a05}.verdict.different{background:#fee2e2;border-color:#fecaca;color:#4c1414}.verdict.uninterpretable{background:#ecece8;color:#2b2b28}
+#paneWrap{display:flex;gap:18px;align-items:flex-start}
+#paneRail{position:sticky;top:118px;display:flex;flex-direction:column;gap:8px;min-width:186px;flex:0 0 186px}
+#paneRail button{display:flex;flex-direction:row;align-items:center;gap:11px;padding:12px 14px;border-radius:14px;border:1px solid var(--glassline);background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:var(--muted);font:600 13px var(--sans);cursor:pointer;text-align:left;width:100%;transition:border-color .12s,color .12s}
+#paneRail button:hover{color:var(--ink)}
+#paneRail button .pi{font-size:21px;line-height:1;width:26px;flex:0 0 26px;text-align:center;color:var(--ink2);font-family:var(--mono)}
+#paneRail button[data-pane="structure"] .pi{font-size:27px}
+#sec-structure h2 .ic{font-size:23px;line-height:0;padding-bottom:2px}
+#paneRail button.on{color:var(--ink);border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+#paneBody{flex:1;min-width:0;display:grid;gap:18px}
+#paneBody .card{grid-column:auto}
+footer{width:100%;box-sizing:border-box;max-width:1440px;margin:auto auto 0;padding:6px 24px 30px;color:var(--muted);font-size:12px}
+@media (max-width:1000px){main{grid-template-columns:1fr}.grid2,.spec .body,.hero-card,.namesgrid{grid-template-columns:1fr}.spec .body>div:first-child{border-right:none;border-bottom:1px solid var(--line)}.feat{grid-template-columns:1fr 1fr}}
+@media print{.top,.subnav,footer,.toggles button,#hoverinfo,.copy{display:none!important}main{display:block}.card{break-inside:avoid;box-shadow:none;margin-bottom:12px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="row">
+  <div class="brand" id="brandHome" title="back to start"><svg id="wordmark" width="118" height="34" viewBox="0 0 78 23" fill="none"><defs><linearGradient id="wmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#e8ecf2"/><stop offset="1" stop-color="#9aa4b2"/></linearGradient></defs><g stroke="url(#wmg)" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M15 2.5 H2 V20.5 H15 V11.5 H9"/><path d="M19.5 2.5 H22.5 V20.5 M22.5 20.5 H25.5 M22.5 20.5 H19.5"/><path d="M30 8.5 H40 V20.5 H30 V13.5 H36"/><path d="M56 8.5 H46 V14.5 H56 V20.5 H46"/><path d="M72 8.5 H62 V14.5 H72 V20.5 H62"/></g></svg><small>chemistry console · v1.2</small></div>
+  <div class="tabs"><button id="tab_mol" class="on">Molecules</button><button id="tab_el">Elements</button></div>
+  <div class="search"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span><input id="q" placeholder="IUPAC or trivial name, SMILES, InChI, InChIKey, CAS…" autofocus spellcheck="false"><kbd>⌘K</kbd></div>
+  <button class="primary" id="go">Resolve</button><button id="drawBtn" aria-label="Draw a structure"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="display:block"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+  <label class="chk"><input type="checkbox" id="usepc" checked> PubChem</label>
+  <button class="small" id="themebtn" title="toggle dark / light" style="background:transparent;border-color:var(--topbtnline);color:var(--topmuted)">◐</button><span id="status"></span>
+</div></div>
+<div class="subnav" id="subnav"><div class="row">
+  <a href="#sec-identity">Identity</a><a href="#sec-names">Names</a>
+  <a href="#" id="methodsLink">Methods &amp; limitations</a>
+</div></div>
+
+<main id="main">
+  <div id="error"></div>
+
+  <section id="landing">
+    <div class="hero">
+      <div class="chips" id="examples"></div>
+      <details id="recentbox" style="margin-top:10px;display:none"><summary style="cursor:pointer;font-size:13px;color:var(--muted)">Recent searches</summary><div class="chips" id="recent" style="margin-top:8px"></div></details>
+      <div class="homoart" title="the HOMO of pentacene, computed in Glass"></div>
+    </div>
+    <div id="featwrap">
+      <div class="featwords">
+        <button data-key="verify">Rigorous verification</button>
+        <button data-key="numbering">IUPAC numbering</button>
+        <button data-key="theory">Theory</button>
+        <button data-key="docs">Docs</button>
+        <span class="ver">Glass v1.2</span>
+      </div>
+      <div id="featblurb"></div>
+    </div>
+  </section>
+
+  <section id="elements" class="card" style="grid-column:1/-1;display:none">
+    <div class="ptctl">
+      <div class="brandline"><b>Periodic table</b><span class="hint">PubChem data (public domain) · hover for details, click to pin</span></div>
+      <input id="ptsearch" placeholder="find element (symbol, name, Z)…" style="width:220px">
+      <label>colour by <select id="ptprop"><option value="block">category</option><option value="sblock">orbital block (s p d f)</option><option value="en">electronegativity (Pauling)</option><option value="mass">atomic mass</option><option value="radius">atomic radius (pm)</option><option value="ie">ionisation energy (eV)</option><option value="ea">electron affinity (eV)</option><option value="mp">melting point (K)</option><option value="bp">boiling point (K)</option><option value="density">density (g/cm³)</option><option value="year">year discovered</option><option value="state">state at temperature</option></select></label>
+      <span id="ptTlab" class="ptT" style="display:none"><span class="hint">T</span><input id="ptT" type="range" min="1" max="6000" step="1" value="298"><span id="ptTval" class="mono">298 K</span><span class="presets"><button class="small" data-t="77">77 K</button><button class="small" data-t="298">298 K</button><button class="small" data-t="373">373 K</button><button class="small" data-t="1000">1000 K</button><button class="small" data-t="3000">3000 K</button></span></span>
+      <span class="ptlegend" id="ptlegend"></span>
+    </div>
+    <div class="ptwrap"><div class="ptgrid" id="ptgrid"></div><aside class="ptcard" id="ptcard"><div class="hint">Hover an element</div></aside></div>
+  </section>
+
+
+  <section class="card hero-card" id="sec-identity" style="display:none">
+    <div>
+      <div id="identity"></div>
+      <div id="warnings"></div>
+      <details style="margin-top:12px"><summary>All identifiers <span class="hint">(regenerated from one structure; InChIKey re-checked)</span></summary>
+        <table id="smiles"></table></details>
+    </div>
+    <div><div class="thumb" id="thumb"><span class="spin"></span></div><div class="ctl" style="margin:8px 0 0;justify-content:flex-end"><button class="small" id="editBtn">✎ Edit structure</button><button class="small" id="dlMol">⤓ MOL</button><button class="small" id="dlPng">⤓ PNG</button></div></div>
+  </section>
+
+  <section class="card wide" id="sec-names" style="display:none">
+    <h2><span class="ic ">Aa</span>Names <span class="ib" data-m="name_parsing,name_generation,canonicalisation" title="methods">i</span> <span class="sub">click a row to use its numbering on the structure</span></h2>
+    <div class="namesgrid"><div>
+    <div class="ctl" style="margin-bottom:8px"><input class="namefilter" id="namefilter" placeholder="filter names…" style="flex:1;margin:0"><label class="hint" style="white-space:nowrap"><input type="checkbox" id="showunv"> show unverified names</label></div>
+    <div class="scroll" style="max-height:380px"><table class="names" id="names"></table></div>
+    </div><div class="verify">
+      <div class="hint" style="margin-bottom:6px"><b>Check an identifier against this structure</b>: a name from a label, a SMILES from a supplier, an InChI from a paper…</div>
+      <div class="ctl" style="margin:0"><input id="vname" style="flex:1;font-family:var(--mono);font-size:13px" placeholder="name, SMILES, InChI or InChIKey"><button id="vgo">Check</button></div>
+      <div id="vout"></div>
+    </div></div>
+  </section>
+
+  <section id="paneWrap" style="display:none;grid-column:1/-1">
+    <nav id="paneRail">
+      <button data-pane="structure" class="on"><span class="pi">⌬</span>Structure</button>
+      <button data-pane="props"><span class="pi">≡</span>Properties</button>
+      <button data-pane="nmr"><span class="pi">δ</span>NMR</button>
+      <button data-pane="ir"><span class="pi">ν̃</span>IR</button>
+      <button data-pane="uv"><span class="pi">λ</span>UV–Vis</button>
+      <button data-pane="pl"><span class="pi">✦</span>PL</button>
+    </nav>
+    <div id="paneBody">
+  <section class="card wide" id="sec-structure" style="display:none">
+    <h2><span class="ic">⌬</span>Structure <span class="ib" data-m="depiction,geometry3d" title="methods">i</span> <span class="sub">ACS 1996 journal style, IUPAC numbering from the selected name</span></h2>
+    <div class="grid2">
+      <div>
+        <div class="namebox" id="namebox"></div>
+        <div class="toggles">
+          <label><input type="checkbox" id="t_parent"> parent locants</label>
+          <label><input type="checkbox" id="t_sub"> substituent locants (′)</label>
+          <label><input type="checkbox" id="t_het"> heteroatom / Greek</label>
+          <label><input type="checkbox" id="t_idx"> atom index</label>
+          <label style="font-weight:400"><input type="checkbox" id="expnum"> numbering in exports</label><button class="small" id="dlsvg">⤓ SVG</button><button class="small" id="dlpng2">⤓ PNG</button><button class="small" id="dlcdxml">⤓ CDXML</button><button class="small" id="dl3d">⤓ 3D PNG</button><button class="small" id="dlGeom">⤓ geometry CSV</button>
+        </div>
+        <div class="structframe"><div id="struct"></div></div>
+        <div class="hint" id="hoverinfo">Hover an atom to highlight its locant in the name.</div>
+      </div>
+      <div>
+        <div class="ctl" style="margin-bottom:6px"><label>Surface <select id="surface"><option value="none">none</option><option value="vdw-q">van der Waals · partial charge</option><option value="sas-q">solvent-accessible · partial charge</option><optgroup label="molecular orbitals" id="mogroup"><option value="mo:homo:0">HOMO</option><option value="mo:lumo:0">LUMO</option></optgroup></select></label><label class="hint"><input type="checkbox" id="showdip"> dipole arrow</label><button class="small" id="mobtn">⚛ MO diagram</button><span class="hint" id="surfnote"></span><span class="ptlegend" id="surflegend" style="display:none"><span id="surfmin"></span><span class="bar" id="surfbar"></span><span id="surfmax"></span></span></div>
+        <div id="viewer3d"></div>
+        <div class="hint" id="geomnote" style="margin:6px 0"></div>
+        
+        <details open><summary>Bond lengths (Å)</summary><div class="scroll"><table id="bl"></table></div></details>
+        <details><summary>Bond angles (°)</summary><div class="scroll"><table id="ba"></table></div></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="sec-props" style="display:none">
+    <h2><span class="ic">≡</span>Predicted properties <span class="ib" data-m="properties" title="methods">i</span> <span class="sub">estimates with typical errors</span></h2><div class="tiles" id="tiles"></div>
+    <div class="kv" id="props"></div>
+  </section>
+  <section class="card" id="sec-exp" style="display:none">
+    <h2><span class="ic">⚗</span>Experimental data <span class="sub">PubChem</span></h2>
+    <div id="exp" class="muted">·</div>
+  </section>
+
+  <section class="card wide" id="sec-spectra" style="display:none">
+    <h2><span class="ic" id="specIc">∿</span>Spectra <span class="ib" data-m="nmr,ir_groups,ir_modes,uv,photoluminescence" title="methods">i</span> <span class="sub">simulated; zoom by dragging, hover peaks or rows to map them onto the structure</span></h2>
+    <div class="ctl" id="specctl">
+      <label>Solvent <select id="solvent"></select></label>
+      <label class="nmronly" title="NMR basis">NMR <select id="nmrlevel"><option value="hose">experimental database + increments</option><option value="increments">increments only</option><option value="giao">quantum (≤16 heavy atoms)</option></select></label>
+      <span class="hint" id="solvnote" style="flex-basis:100%"></span>
+      <span class="hint nmronly" id="levelnote" style="flex-basis:100%"></span>
+      <label class="nmronly">¹H <input id="mhz" type="number" value="400" min="60" max="1200" step="1" style="width:74px"> MHz</label>
+      <span class="hint nmronly" id="c13mhz"></span>
+      <button class="small" id="respec">Update</button>
+      <a class="hint nmronly" id="nmrdb" target="_blank" rel="noopener">compare with an external predictor (nmrdb.org) ↗</a>
+    </div>
+    <div class="spec"><div class="head"><b>¹H NMR</b><span class="ib" data-m="nmr">i</span><span class="hint">drag to zoom · ⌘/Ctrl + wheel · double-click resets · click a peak to select</span><span class="dl"><button class="small" data-dl="png:c_h1:1H_NMR">⤓ PNG</button><button class="small" data-dl="csv:h1">⤓ CSV</button></span></div>
+      <div class="body"><div><canvas class="chart nmr" id="c_h1"></canvas></div>
+      <div><div class="lbl">protons: hover a signal or a row</div><div class="structbox" id="structH"></div><div class="scroll tall"><table id="t_h1"></table></div></div></div></div>
+    <div class="spec"><div class="head"><b>¹³C{¹H} NMR</b><span class="ib" data-m="nmr">i</span><span class="hint">proton-decoupled; quaternary carbons drawn weaker</span><span class="dl"><button class="small" data-dl="png:c_c13:13C_NMR">⤓ PNG</button><button class="small" data-dl="csv:c13">⤓ CSV</button></span></div>
+      <div class="body"><div><canvas class="chart nmr" id="c_c13"></canvas></div>
+      <div><div class="lbl">carbons: hover a signal or a row</div><div class="structbox" id="struct2"></div><div class="scroll tall"><table id="t_c13"></table></div></div></div></div>
+
+    <div class="spec"><div class="head"><b>Experimental section</b><span class="badge info plain">predicted draft</span><span class="hint">journal-style text generated from the predicted shifts; verify against measured spectra before publication</span><span class="dl"><button class="small" id="copyExpSec">⧉ copy text</button></span></div>
+      <div id="expsec" style="background:var(--paperbox);border:1px solid var(--line);border-radius:12px;padding:14px 18px;font:13px/1.8 var(--sans);color:#17171a;user-select:text"></div></div>
+    <div class="spec"><div class="head"><b>IR</b><span class="ib" data-m="ir_groups,ir_modes">i</span><label class="hint" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap" title="Vibrational level of theory">level <select id="viblevel"><option value="auto">auto (higher level ≤45 heavy atoms)</option><option value="gfn2">quantum</option><option value="mmff">fast (force field)</option></select></label><span class="hint" id="irnote">blue: group-frequency simulation · red sticks: normal modes, click to animate</span><span class="dl"><button class="small" data-dl="png:c_ir:IR">⤓ PNG</button><button class="small" data-dl="csv:ir">⤓ CSV</button><button class="small" id="dlVib">⤓ 3D PNG</button></span></div>
+      <div class="body"><div><canvas class="chart nmr" id="c_ir"></canvas></div>
+      <div><div class="lbl">normal modes <span id="modelevel"></span></div><div id="vib3d"></div><div class="hint" id="vibnote"></div><div class="hint" id="vibperiod" style="font-size:11px;opacity:.75;margin-bottom:6px"></div><div class="scroll tall"><table id="t_modes"></table></div><details><summary>group-frequency bands</summary><div class="scroll"><table id="t_ir"></table></div></details></div></div></div>
+    <div class="spec"><div class="head"><b>UV–Vis</b><span class="ib" data-m="uv">i</span><span class="hint" id="uvsolv">Woodward–Fieser / Scott rules</span><span class="dl"><button class="small" data-dl="png:c_uv:UV-Vis">⤓ PNG</button><button class="small" data-dl="csv:uv">⤓ CSV</button></span></div>
+      <div class="body"><div><canvas class="chart" id="c_uv" style="height:280px"></canvas></div>
+      <div><div class="scroll tall"><table id="t_uv"></table></div><div class="hint" id="uvnote" style="padding:8px 2px"></div></div></div></div>
+    <div class="spec pl"><div class="head"><b>Photoluminescence</b><span class="badge acc plain" id="plclass"></span><span class="ib" data-m="photoluminescence">i</span><span class="hint">absorption ⟷ fluorescence · hover a vibronic peak to see its transition</span><span class="dl"><button class="small" data-dl="png:c_pl:photoluminescence">⤓ PNG</button><button class="small" data-dl="csv:pl">⤓ CSV</button><button class="small" id="dlFC">⤓ FC SVG</button></span></div>
+      <div class="body"><div>
+        <div class="plsummary" id="plsummary"></div>
+        <div class="plctl"><label title="check whether a given source wavelength excites this molecule">Excitation λ <input id="lex" type="number" step="1" placeholder="e.g. 365"> nm</label><label title="check the emission intensity at a given detection wavelength">Emission λ <input id="lem" type="number" step="1" placeholder="e.g. 450"> nm</label><button class="small" id="plreset">clear</button><span class="fb" id="plfb"></span></div>
+        <canvas class="chart nmr" id="c_pl" style="min-height:330px"></canvas>
+        <div class="scroll" style="max-height:230px;margin:8px 8px 4px"><table id="t_pl"></table></div>
+      </div>
+      <div><div class="lbl">Franck–Condon diagram: S₀ / S₁ displaced harmonic wells</div>
+        <div class="fcbox"><svg id="fc" viewBox="0 0 520 470" style="width:100%;height:auto"></svg></div>
+        <div class="hint" id="plnote" style="margin-top:8px"></div>
+        <div id="plreasons" style="margin-top:8px"></div>
+      </div></div></div>
+  </section>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<div class="modal" id="atomModal"><div class="box"><button class="close small" onclick="this.closest('.modal').classList.remove('open')">close</button><h3 id="atomTitle">Atom</h3><div class="hint" id="atomSub" style="margin-bottom:10px"></div><div class="atomgrid"><div><div class="lbl">electron shells</div><svg id="atomShells" viewBox="0 0 240 240"></svg><div class="kv" id="atomKV" style="margin-top:8px"></div></div><div><div class="lbl">atomic orbital <span class="hint">(hydrogenic, exact shape)</span></div><div class="aoseg" id="aoSeg"></div><div id="atomViewer"></div><div class="hint" id="atomONote" style="margin-top:6px"></div></div></div></div></div>
+<div class="modal" id="methodsModal"><div class="box"><button class="close small" onclick="this.closest('.modal').classList.remove('open')">close</button><h3 id="mTitle">Methods &amp; limitations</h3><div class="hint" style="margin-bottom:8px">Level of theory, what each method is good for, and what it cannot resolve.</div><div id="mBody"></div></div></div>
+<div class="modal" id="moModal"><div class="box" style="max-width:640px"><button class="close small" onclick="this.closest('.modal').classList.remove('open')">close</button><h3>Molecular-orbital diagram <span class="ib" data-m="electronic">i</span></h3><div class="hint" style="margin-bottom:8px">Electronic-structure levels. Vertical placement is by rank; energies are printed on every level (ordinate not to scale).</div><div style="display:grid;grid-template-columns:360px 1fr;gap:18px"><svg id="modiag" viewBox="0 0 360 560" style="width:100%;max-width:360px;border:1px solid var(--line);border-radius:14px"></svg><div class="kv" id="mokv" style="align-self:start"></div></div></div></div>
+<div class="modal" id="editModal"><div class="box" style="max-width:1100px"><button class="close small" id="editCancel">cancel</button><h3>Edit structure</h3><div class="hint" style="margin-bottom:8px">Ketcher editor (EPAM, Apache-2.0). Modify the molecule and apply; everything is recomputed from the new structure.</div><iframe id="ketcher" src="about:blank" style="width:100%;height:600px;border:1px solid var(--line);border-radius:10px;background:#fff"></iframe><div class="ctl" style="margin-top:10px"><button class="primary" id="editApply">Apply structure</button><span class="hint" id="editStatus"></span></div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.4/3Dmol-min.js"></script>
+<script src="/static/js/core.js"></script>
+<script src="/static/js/structure.js"></script>
+<script src="/static/js/properties.js"></script>
+<script src="/static/js/spectra.js"></script>
+<script src="/static/js/photo.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/tools.js"></script>
+<script src="/static/js/elements.js"></script>
+<script src="/static/js/main.js"></script>
+</body>
+</html>

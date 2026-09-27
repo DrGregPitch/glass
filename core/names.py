@@ -1,0 +1,540 @@
+"""
+Identity resolution: ANY input (IUPAC/systematic/trivial name, SMILES, InChI, InChIKey, CAS)
+-> one canonical structure -> every name/SMILES representation, each cross-verified.
+
+Rigor model
+-----------
+* A name is only labelled VERIFIED if OPSIN parses it and the resulting StdInChIKey is
+  identical to the StdInChIKey of the resolved structure (full 27-char key => same
+  connectivity, stereo, isotopes, and protonation).  Otherwise it is shown but flagged.
+* Every SMILES variant is regenerated from one RDKit molecule, so they are mutually
+  consistent by construction; the InChIKey of each is re-checked as a guard.
+"""
+from __future__ import annotations
+import re, json, functools, threading, concurrent.futures
+from dataclasses import dataclass, field, asdict
+from typing import Optional
+import requests
+from rdkit import Chem, RDLogger
+from rdkit.Chem import inchi as rdinchi
+from . import opsin
+
+RDLogger.DisableLog("rdApp.*")
+PUBCHEM = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+PUBCHEM_VIEW = "https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound"
+_TIMEOUT = 4
+_session = requests.Session()
+_session.headers["User-Agent"] = "Glass/1.0 (local productivity tool)"
+
+
+# ----------------------------------------------------------------------------- helpers
+def std_inchikey(mol: Chem.Mol) -> str:
+    return rdinchi.MolToInchiKey(mol)
+
+
+def looks_like_inchi(s: str) -> bool:
+    return s.startswith("InChI=")
+
+
+def looks_like_inchikey(s: str) -> bool:
+    return re.fullmatch(r"[A-Z]{14}-[A-Z]{10}-[A-Z]", s) is not None
+
+
+def looks_like_cas(s: str) -> bool:
+    return re.fullmatch(r"\d{2,7}-\d{2}-\d", s) is not None
+
+
+def mol_from_smiles(s: str) -> Optional[Chem.Mol]:
+    try:
+        m = Chem.MolFromSmiles(s)
+        if m is not None and m.GetNumAtoms() > 0:
+            return m
+    except Exception:
+        pass
+    return None
+
+
+@functools.lru_cache(maxsize=4096)
+def _get_json(url: str):
+    try:
+        r = _session.get(url, timeout=_TIMEOUT)
+        if r.status_code == 200:
+            return r.json()
+    except requests.RequestException:
+        return None
+    return None
+
+
+# ----------------------------------------------------------------------------- data classes
+@dataclass
+class NameEntry:
+    name: str
+    kind: str                 # 'input' | 'iupac' | 'title' | 'synonym' | 'opsin-generated'
+    source: str               # 'user' | 'PubChem' | ...
+    verified: bool = False    # OPSIN round trip matched InChIKey
+    opsin_smiles: Optional[str] = None
+    note: str = ""
+    locants: Optional[list] = None      # per resolved-mol atom index: locant string or None
+    fragments: Optional[list] = None    # per atom: 'parent' | 'sub' | None
+    spans: Optional[dict] = None        # atom index (str) -> [[start,end],...] char spans of ITS locant in the name
+    fragment_ids: Optional[list] = None # per atom: 0 = parent hydride, 1.. = substituent groups in name order
+
+
+@dataclass
+class Resolution:
+    input: str
+    input_kind: str
+    smiles_canonical: str
+    smiles_canonical_nostereo: str
+    smiles_kekule: str
+    smiles_input: Optional[str]
+    smiles_opsin: Optional[str]
+    smiles_pubchem: Optional[str]
+    inchi: str
+    inchikey: str
+    formula: str
+    cid: Optional[int]
+    generated_note: Optional[str] = None
+    cas: Optional[str] = None
+    iupac_name: Optional[str] = None     # systematic name (OPSIN-verified)
+    common_name: Optional[str] = None    # PubChem title
+    names: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
+    online: bool = True
+
+
+# ----------------------------------------------------------------------------- locant mapping
+_NUM_LOC = re.compile(r"^\d+[a-z]{0,2}$")   # 1, 2, 4a, 8b ...
+
+
+def _grow(mol, seed, numbered, locants):
+    frag = {seed}; used = {locants[seed]}; frontier = [seed]
+    while frontier:
+        a = frontier.pop()
+        for nb in mol.GetAtomWithIdx(a).GetNeighbors():
+            j = nb.GetIdx()
+            if j in frag or j not in numbered or locants[j] in used:
+                continue
+            frag.add(j); used.add(locants[j]); frontier.append(j)
+    return frag
+
+
+def _assign_fragments(mol: Chem.Mol, locants: list, ranks: list, n_groups=None):
+    """
+    Split numbered atoms into fragments (parent hydride + substituent groups).
+    Facts used: locants are unique within a fragment (so growth never crosses into another
+    fragment, whose attachment atom re-uses a locant the parent already owns), and OPSIN
+    instantiates substituents before the parent, inner groups first, so the parent has the
+    highest creation ids and substituent fragments are ordered by their creation ids in the
+    same order in which their bracket groups close in the name.
+    Returns (kind_per_atom, fragment_id_per_atom, ordered substituent fragment ids).
+    kind: 'parent' | 'sub' | 'hetero' | None.  Parent fragment id = 0; substituents 1..n in
+    name (closing-bracket) order.
+    """
+    n = mol.GetNumAtoms()
+    remaining = set(i for i in range(n) if locants[i] and _NUM_LOC.match(locants[i]))
+    frags = []
+    while remaining:
+        best, best_key = None, None
+        for seed in remaining:
+            f = _grow(mol, seed, remaining, locants)
+            key = (max(ranks[i] for i in f), sum(ranks[i] for i in f) / len(f), len(f))
+            if best_key is None or key > best_key:
+                best, best_key = f, key
+        frags.append(best); remaining -= best
+    kind = [None] * n; fid = [-1] * n
+    if not frags:
+        return kind, fid, []
+    parent = frags[0]
+    subs = sorted(frags[1:], key=lambda f: min(ranks[i] for i in f))    # creation order
+    # only bracketed substituents own locant tokens in the name; when there are more
+    # fragments than bracket groups the extras are un-bracketed simple groups (methyl,
+    # chloro-methyl carbons...) -> smallest fragments are dropped from the mapping
+    if n_groups is not None:
+        mapped = list(subs)
+        while len(mapped) > n_groups and mapped:
+            smallest = min(mapped, key=len)
+            if len(smallest) > 1 and len(mapped) <= n_groups:
+                break
+            mapped.remove(smallest)
+    else:
+        mapped = list(subs)
+    for i in parent:
+        kind[i] = "parent"; fid[i] = 0
+    for f in subs:
+        for i in f:
+            kind[i] = "sub"; fid[i] = -2
+    for k, f in enumerate(mapped, 1):
+        for i in f:
+            fid[i] = k
+    for i in range(n):
+        if kind[i] is None and locants[i]:
+            kind[i] = "hetero"
+            nb = [x.GetIdx() for x in mol.GetAtomWithIdx(i).GetNeighbors() if fid[x.GetIdx()] >= 0]
+            fid[i] = min((fid[j] for j in nb), default=0)
+    return kind, fid, list(range(1, len(mapped) + 1))
+
+
+_OPEN, _CLOSE = "([{", ")]}"
+
+
+def _bracket_groups(name: str):
+    """[(open_pos, close_pos, depth)] for every bracket group, sorted by closing position."""
+    stack, groups = [], []
+    for i, ch in enumerate(name):
+        if ch in _OPEN:
+            stack.append(i)
+        elif ch in _CLOSE and stack:
+            o = stack.pop(); groups.append((o, i, len(stack)))
+    return sorted(groups, key=lambda g: g[1])
+
+
+def _depth_at(name: str, pos: int) -> int:
+    d = 0
+    for ch in name[:pos]:
+        if ch in _OPEN: d += 1
+        elif ch in _CLOSE: d = max(0, d - 1)
+    return d
+
+
+def _spans(name: str, locs: list, fid: list, sub_ids: list) -> dict:
+    """
+    Per-atom character spans of *its own* locant token in the name.
+    Parent-hydride atoms match tokens outside all brackets; substituent fragment k matches
+    tokens directly inside its bracket group (k-th group in closing order); tokens nested in
+    an inner group belong to that inner group.  Substituents that are not bracketed
+    (e.g. 'methyl' in 2-methylbutan-2-ol) carry no own locant in the name -> no span.
+    """
+    groups = _bracket_groups(name)
+    tok = re.compile(r"(?<![A-Za-z0-9'′])([0-9]+[a-z]{0,2}|[A-Z]|[a-z]{3,7})(['′]*)(?![A-Za-z0-9])")
+    tokens = [(m.start(), m.end(), m.group(1) + m.group(2).replace("′", "'"), _depth_at(name, m.start())) for m in tok.finditer(name)]
+    out: dict = {}
+    for i, L in enumerate(locs):
+        if not L or fid[i] < 0:
+            continue
+        if fid[i] == 0:
+            region = [(0, len(name), 0)]
+        else:
+            k = fid[i] - 1
+            if k >= len(groups):
+                continue
+            o, c, d = groups[k]; region = [(o + 1, c, d + 1)]
+        hits = [[a, b] for (a, b, val, depth) in tokens if val == L and any(r0 <= a < r1 and depth == rd for r0, r1, rd in region)]
+        if hits:
+            out[str(i)] = hits
+    return out
+
+
+def attach_locants(entry: NameEntry, target: Chem.Mol, cml_el) -> None:
+    """Fill entry.locants / fragments / spans from the OPSIN CML for entry.name."""
+    om, av, ranks = opsin.cml_to_mol(cml_el)
+    if om.GetNumAtoms() != target.GetNumAtoms():
+        return
+    match = target.GetSubstructMatch(om, useChirality=True)
+    if len(match) != target.GetNumAtoms():
+        match = target.GetSubstructMatch(om)
+    if len(match) != target.GetNumAtoms():
+        return
+    kind_o, fid_o, sub_ids = _assign_fragments(om, av, ranks, len(_bracket_groups(entry.name)))
+    n = target.GetNumAtoms()
+    locs = [None] * n; frags = [None] * n; fid = [-1] * n
+    for oi, ti in enumerate(match):
+        locs[ti] = av[oi]; frags[ti] = kind_o[oi]; fid[ti] = fid_o[oi]
+    entry.locants, entry.fragments, entry.fragment_ids = locs, frags, fid
+    entry.spans = _spans(entry.name, locs, fid, sub_ids)
+
+
+# ----------------------------------------------------------------------------- style ranking
+_STYLE_PENALTIES = [
+    (r",\s", 40), (r"\b[omp]-", 25), (r"\b(iso|sec-|tert-|neo)", 12),
+    (r"(oxidanyl|azanyl|sulfanyl|λ|lambda|anyl\b|chloranyl|fluoranyl|bromanyl|iodanyl)", 30),
+    (r"cyclohexa-1,3,5-triene", 35), (r"\]methanoic|\]methanenitrile|\]methanal", 20),
+    (r"\b(alpha|beta|gamma|α|β|γ)\b", 15), (r"\d[a-z]?-(ol|one|al|oic|amine|amide)\b", 8),
+    (r"acetic|formic|propionic|butyric", 6),
+]
+
+
+_RETAINED = re.compile(r"^(methanol|ethanol|methanal|ethene|ethyne|phenol|aniline|toluene|acet(ic|one|aldehyde)|formic acid|form(aldehyde|amide)|benzoic acid|benzaldehyde|acetic acid|pyridine|furan|pyrrole|thiophene|naphthalene|anthracene|styrene|urea|oxalic acid|glycerol|catechol|resorcinol|hydroquinone|purine|indole)$", re.I)
+
+
+def style_score(name: str) -> int:
+    """Approximate IUPAC-2013 style preference for RANKING verified names (lower = preferred).
+    A documented heuristic, not a P-rule engine: every ranked name is an exact synonym
+    (identical InChIKey); the score only orders presentation."""
+    n = name.strip(); score = 0
+    if _RETAINED.match(n):
+        return -50
+    for pat, pen in _STYLE_PENALTIES:
+        if re.search(pat, n, re.I):
+            score += pen
+    if not re.search(r"\d", n) and len(n) > 10:
+        score += 10
+    score += max(0, len(n) - 25) // 10
+    return score
+
+
+# ----------------------------------------------------------------------------- verification
+def verify_name(entry: NameEntry, inchikey: str) -> None:
+    smi = opsin.name_to_smiles(entry.name)
+    entry.opsin_smiles = smi
+    if not smi:
+        entry.verified = False
+        entry.note = entry.note or "not a systematic name (OPSIN cannot parse); database synonym only"
+        return
+    key = opsin.name_to_inchikey(entry.name)
+    if key == inchikey:
+        entry.verified = True
+        entry.note = "OPSIN round-trip: identical StdInChIKey"
+    elif key and key.split("-")[0] == inchikey.split("-")[0]:
+        entry.verified = False
+        entry.note = "same skeleton but stereo/isotope/charge layer differs (InChIKey block 2/3 mismatch)"
+    else:
+        entry.verified = False
+        entry.note = "OPSIN parses this name to a DIFFERENT structure; do not trust"
+
+
+# ----------------------------------------------------------------------------- PubChem
+def pubchem_by_inchikey(key: str):
+    j = _get_json(f"{PUBCHEM}/compound/inchikey/{key}/property/IUPACName,SMILES,ConnectivitySMILES,Title/JSON")
+    if not j:
+        return None
+    return j["PropertyTable"]["Properties"][0]
+
+
+def pubchem_by_name(name: str):
+    j = _get_json(f"{PUBCHEM}/compound/name/{requests.utils.quote(name)}/property/IUPACName,SMILES,ConnectivitySMILES,InChIKey,Title/JSON")
+    if not j:
+        return None
+    return j["PropertyTable"]["Properties"][0]
+
+
+def pubchem_cas(cid: int) -> Optional[str]:
+    j = _get_json(f"{PUBCHEM}/compound/cid/{cid}/synonyms/JSON")
+    if not j:
+        return None
+    for s in j["InformationList"]["Information"][0].get("Synonym", []):
+        if re.fullmatch(r"\d{2,7}-\d{2}-\d", s):
+            return s
+    return None
+
+
+def pubchem_by_smiles(smiles: str):
+    j = _get_json(f"{PUBCHEM}/compound/smiles/{requests.utils.quote(smiles, safe='')}/property/IUPACName,SMILES,ConnectivitySMILES,InChIKey,Title/JSON")
+    if not j:
+        return None
+    return j["PropertyTable"]["Properties"][0]
+
+
+def pubchem_synonyms(cid: int, limit=40) -> list[str]:
+    j = _get_json(f"{PUBCHEM}/compound/cid/{cid}/synonyms/JSON")
+    if not j:
+        return []
+    syns = j["InformationList"]["Information"][0].get("Synonym", [])
+    out = []
+    for s in syns:
+        if re.fullmatch(r"[A-Z0-9\-]{6,}", s) and "-" in s and s.count("-") >= 2:
+            continue      # registry numbers, InChIKeys, etc.
+        if re.fullmatch(r"\d{2,7}-\d{2}-\d", s):
+            continue
+        if s.lower().startswith(("dtxsid", "chebi", "chembl", "unii", "schembl", "hsdb", "nsc", "ec ", "einecs", "brn ", "mfcd", "zinc", "akos", "bdbm", "cas-", "dtxcid", "gtpl")):
+            continue
+        out.append(s)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def pubchem_experimental(cid: int) -> dict:
+    """Experimental property strings from PubChem PUG-View (melting/boiling point, density...)."""
+    out = {}
+    for heading, key in (("Melting Point", "mp"), ("Boiling Point", "bp"), ("Density", "density"), ("Solubility", "solubility"), ("LogP", "logp")):
+        j = _get_json(f"{PUBCHEM_VIEW}/{cid}/JSON?heading={requests.utils.quote(heading)}")
+        if not j:
+            continue
+        vals = []
+        def walk(sec):
+            for s in sec.get("Section", []):
+                walk(s)
+            for info in sec.get("Information", []):
+                v = info.get("Value", {})
+                for sw in v.get("StringWithMarkup", []):
+                    vals.append(sw["String"])
+                if "Number" in v:
+                    vals.append(" ".join(str(x) for x in v["Number"]) + " " + v.get("Unit", ""))
+        walk(j.get("Record", {}))
+        if vals:
+            out[key] = vals[:6]
+    return out
+
+
+# ----------------------------------------------------------------------------- main entry
+def resolve(text: str, want_pubchem: bool = True) -> Resolution:
+    if len(text) > 10_000:
+        raise ValueError("input too long (> 10,000 characters)")
+    raw = text.strip()
+    raw = re.sub(r"^(InChIKey|CAS)\s*[=:]\s*", "", raw, flags=re.I)
+    if not raw:
+        raise ValueError("empty input")
+    warnings: list[str] = []
+    mol = None; kind = ""; smiles_input = None; smiles_opsin = None; pc = None; online = True
+
+    # 1. InChI / InChIKey / CAS
+    if looks_like_inchi(raw):
+        mol = Chem.MolFromInchi(raw); kind = "InChI"
+        if mol is None:
+            raise ValueError("Invalid InChI")
+    elif looks_like_inchikey(raw) or looks_like_cas(raw):
+        kind = "InChIKey" if looks_like_inchikey(raw) else "CAS RN"
+        pc = pubchem_by_inchikey(raw) if kind == "InChIKey" else pubchem_by_name(raw)
+        if not pc:
+            raise ValueError(f"{kind} not found in PubChem (or offline)")
+        mol = mol_from_smiles(pc.get("SMILES") or pc.get("ConnectivitySMILES"))
+    else:
+        # 2. systematic name via OPSIN
+        smi = opsin.name_to_smiles(raw)
+        if smi:
+            mol = mol_from_smiles(smi); kind = "IUPAC / systematic name"; smiles_opsin = smi
+        # 3. SMILES
+        if mol is None:
+            m = mol_from_smiles(raw)
+            if m is not None and (re.search(r"[=#()\[\]@/\\0-9]", raw) or re.fullmatch(r"[A-Za-z]{1,12}", raw) is None or raw.lower() in ("c", "cc", "co", "ccc", "cco", "occo", "cn", "n", "o", "s", "cs")):
+                mol = m; kind = "SMILES"; smiles_input = raw
+        # 4. trivial / trade name via PubChem
+        if mol is None and want_pubchem:
+            pc = pubchem_by_name(raw)
+            if pc:
+                mol = mol_from_smiles(pc.get("SMILES") or pc.get("ConnectivitySMILES"))
+                kind = "common / trade name (PubChem lookup)"
+                warnings.append("Input was NOT a systematic name; structure came from a PubChem name lookup. Check the structure.")
+        if mol is None:
+            reason = opsin.failure_reason(raw)
+            raise ValueError(f"Could not interpret input as a name, SMILES, InChI or InChIKey. OPSIN says: {reason}")
+
+    # --- canonical structure -----------------------------------------------------------
+    Chem.AssignStereochemistry(mol, cleanIt=True, force=True)
+    can = Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
+    mol = Chem.MolFromSmiles(can)          # normalise atom order to canonical
+    nostereo = Chem.MolToSmiles(mol, isomericSmiles=False, canonical=True)
+    kek = Chem.Mol(mol); Chem.Kekulize(kek, clearAromaticFlags=True)
+    kekule = Chem.MolToSmiles(kek, kekuleSmiles=True, isomericSmiles=True, canonical=True)
+    inchi = rdinchi.MolToInchi(mol)
+    key = std_inchikey(mol)
+    from rdkit.Chem.rdMolDescriptors import CalcMolFormula
+    formula = CalcMolFormula(mol)
+
+    # --- names -------------------------------------------------------------------------
+    names: list[NameEntry] = []
+    seen: set[str] = set()
+
+    def add(e: NameEntry):
+        k = e.name.strip().lower()
+        if not k or k in seen:
+            return
+        seen.add(k); names.append(e)
+
+    if kind == "IUPAC / systematic name":
+        add(NameEntry(raw, "input", "user"))
+
+    cid = None; smiles_pubchem = None; cas = None
+    if want_pubchem:
+        if pc is None:
+            pc = pubchem_by_inchikey(key) or pubchem_by_smiles(can)
+            if pc is None and nostereo != can:
+                pc = pubchem_by_smiles(nostereo)
+                if pc:
+                    warnings.append("PubChem only has this compound without the specified stereochemistry; database names below refer to the stereo-unspecified entry (they will show as 'unverified' unless stereo-complete).")
+        if pc:
+            cid = pc.get("CID"); smiles_pubchem = pc.get("SMILES") or pc.get("ConnectivitySMILES")
+            # CAS and synonyms are independent PubChem calls; overlap them
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as _ex:
+                _fcas = _ex.submit(pubchem_cas, cid)
+                _fsyn = _ex.submit(pubchem_synonyms, cid)
+                cas = _fcas.result()
+                _syns = _fsyn.result()
+            if pc.get("IUPACName"):
+                add(NameEntry(pc["IUPACName"], "iupac", "PubChem systematic name"))
+            if pc.get("Title"):
+                add(NameEntry(pc["Title"], "title", "PubChem preferred/common name"))
+            for s in _syns:
+                add(NameEntry(s, "synonym", "PubChem synonym"))
+        else:
+            online = _get_json(f"{PUBCHEM}/compound/cid/2244/property/Title/JSON") is not None
+            if not online:
+                warnings.append("PubChem unreachable, working offline; only OPSIN/RDKit-derived data shown.")
+            else:
+                warnings.append("Structure not found in PubChem; no database names available. Names shown are what you entered / OPSIN can verify.")
+    else:
+        online = False
+
+    # verify every name, attach locants for verified systematic names
+    for e in names:
+        verify_name(e, key)
+    verified = [e for e in names if e.verified]
+    cml = opsin.names_to_cml([e.name for e in verified]) if verified else {}
+    for e in verified:
+        el = cml.get(" ".join(e.name.split()))
+        if el is None:
+            continue
+        try:
+            attach_locants(e, mol, el)
+        except Exception as ex:  # never let numbering break resolution
+            e.note += f" (locant mapping failed: {ex})"
+
+    # order: verified first; among verified, approximate Blue-Book style preference
+    names.sort(key=lambda e: (not e.verified, style_score(e.name) if e.verified else 0,
+                              {"generated": 0, "iupac": 1, "input": 2, "title": 3, "synonym": 4}.get(e.kind, 5), len(e.name)))
+    best_sys = next((e.name for e in names if e.verified), None)
+
+    iupac = best_sys or next((e.name for e in names if e.kind == "iupac" and e.verified), None) or next((e.name for e in names if e.kind == "input" and e.verified), None)
+    generated_note = None
+    if iupac is None:
+        from . import namer
+        if namer.available():
+            g = namer.generate(can)
+            if "candidates" in g:
+                rejected, accepted = [], []
+                for c in g["candidates"]:
+                    e = NameEntry(c["name"], "generated", f"{g['generator']} · {c['style'].lower()} style")
+                    verify_name(e, key)
+                    if e.verified:
+                        if e.name.strip().lower() not in seen:
+                            accepted.append(e); seen.add(e.name.strip().lower())
+                    else:
+                        rejected.append(f"“{c['name']}” ({c['style'].lower()}: {e.note.split('; ')[0]})")
+                # all accepted names are correct (identical InChIKey); prefer conventional style:
+                # penalise "oxidanyl/fluoranyl/…-anyl" and "cyclohexa-1,3,5-triene"-type spellings, then shorter names
+                def badness(e):
+                    n = e.name.lower()
+                    return (sum(tok in n for tok in ("oxidanyl", "anyl", "cyclohexa-1,3,5-triene", "lambda", "azanyl", "sulfanyl", "]methanoic", "]methanenitrile", "]methanal", "ethanoic acid", "ethanoate")), 0 if "base" in e.source else 1, len(n))
+                accepted.sort(key=badness)
+                for e in reversed(accepted):
+                    names.insert(0, e)
+                if accepted:
+                    e = accepted[0]; iupac = e.name
+                    cml = opsin.names_to_cml([e.name])
+                    if cml.get(" ".join(e.name.split())):
+                        try:
+                            attach_locants(e, mol, cml[" ".join(e.name.split())])
+                        except Exception:
+                            pass
+                if iupac:
+                    generated_note = "generated systematic name, verified by OPSIN round-trip (identical Standard InChIKey)" + (f"; {len(rejected)} other candidate(s) rejected" if rejected else "")
+                else:
+                    generated_note = "no candidate name survived OPSIN verification, so none are shown: " + "; ".join(rejected)
+            else:
+                generated_note = "no verified systematic name available for this structure"
+        else:
+            generated_note = "no verified systematic name available for this structure"
+    common = next((e.name for e in names if e.kind == "title"), None)
+    return Resolution(
+        input=raw, input_kind=kind, cas=cas, iupac_name=iupac, common_name=common, generated_note=generated_note,
+        smiles_canonical=can, smiles_canonical_nostereo=nostereo, smiles_kekule=kekule,
+        smiles_input=smiles_input, smiles_opsin=smiles_opsin, smiles_pubchem=smiles_pubchem,
+        inchi=inchi, inchikey=key, formula=formula, cid=cid,
+        names=names, warnings=warnings, online=online,
+    )
+
+
+def resolution_to_dict(r: Resolution) -> dict:
+    d = asdict(r)
+    return d

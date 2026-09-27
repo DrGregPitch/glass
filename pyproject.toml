@@ -1,0 +1,18 @@
+[project]
+name = "glass-console"
+version = "1.2.0"
+description = "Rigorous name ⇄ structure cross-checking with IUPAC numbering, property and spectrum simulation"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)"]
+dependencies = [
+  "rdkit>=2023.9", "py2opsin>=1.0", "fastapi>=0.110", "uvicorn>=0.27", "requests>=2.31",
+  "thermo>=0.2.27", "numpy", "scipy", "pydantic>=2",
+  "tblite>=0.4", "pyscf>=2.5", "pyscf-properties",   # quantum stack (Linux/macOS); LGPL tblite, Apache PySCF
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

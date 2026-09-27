@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+data/nmrshiftdb2withsignals.sd
+.pytest_cache/
+build/
+dist/
+namer_env/
+.backups/
+namer_env_dev/
+namer_env*/
+*.tmp
+strategy/
+deploy/
+.DS_Store
+build_tools/
+.venv/
+venv/

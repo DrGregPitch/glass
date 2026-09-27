@@ -1,0 +1,11 @@
+rdkit>=2023.9
+py2opsin>=1.0
+fastapi>=0.110
+uvicorn>=0.27
+requests>=2.31
+thermo>=0.2.27
+numpy
+scipy
+tblite>=0.4
+pyscf>=2.5
+pyscf-properties

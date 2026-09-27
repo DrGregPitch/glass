@@ -1,0 +1,91 @@
+{
+ "rows": [
+  {
+   "compound": "acetone C=O",
+   "smiles": "CC(=O)C",
+   "experimental": 1731,
+   "gfn2": 1730.5,
+   "mmff": 1697.0
+  },
+  {
+   "compound": "aspirin ester C=O",
+   "smiles": "CC(=O)Oc1ccccc1C(O)=O",
+   "experimental": 1755,
+   "gfn2": 1738.4,
+   "mmff": 1785.3
+  },
+  {
+   "compound": "benzene C\u2013H out-of-plane (\u03bd11)",
+   "smiles": "c1ccccc1",
+   "experimental": 673,
+   "gfn2": 671.9,
+   "mmff": 664.1
+  },
+  {
+   "compound": "ethanol O\u2013H (gas)",
+   "smiles": "CCO",
+   "experimental": 3676,
+   "gfn2": 3435.8,
+   "mmff": 3544.3
+  },
+  {
+   "compound": "acrolein C=O",
+   "smiles": "C=CC=O",
+   "experimental": 1724,
+   "gfn2": 1700.4,
+   "mmff": 1691.6
+  },
+  {
+   "compound": "acetonitrile C\u2261N",
+   "smiles": "CC#N",
+   "experimental": 2267,
+   "gfn2": 2349.2,
+   "mmff": null
+  },
+  {
+   "compound": "benzaldehyde C=O",
+   "smiles": "O=Cc1ccccc1",
+   "experimental": 1710,
+   "gfn2": 1692.8,
+   "mmff": 1674.3
+  },
+  {
+   "compound": "ethyl acetate C=O",
+   "smiles": "CCOC(C)=O",
+   "experimental": 1761,
+   "gfn2": 1730.1,
+   "mmff": 1758.2
+  },
+  {
+   "compound": "acetamide C=O (gas)",
+   "smiles": "CC(=O)N",
+   "experimental": 1733,
+   "gfn2": 1721.9,
+   "mmff": 1739.5
+  },
+  {
+   "compound": "dichloromethane C\u2013Cl",
+   "smiles": "ClCCl",
+   "experimental": 742,
+   "gfn2": 664.2,
+   "mmff": 740.5
+  },
+  {
+   "compound": "pyridine ring breathing",
+   "smiles": "c1ccncc1",
+   "experimental": 992,
+   "gfn2": 956.3,
+   "mmff": 997.5
+  },
+  {
+   "compound": "butane CH2 scissor",
+   "smiles": "CCCC",
+   "experimental": 1460,
+   "gfn2": 1460.2,
+   "mmff": 1408.4
+  }
+ ],
+ "MAE_gfn2": 44.8,
+ "MAE_mmff": 31.0,
+ "note": "Experimental: gas-phase / dilute-solution literature band centres (NIST Chemistry WebBook, Shimanouchi). Computed: scaled harmonic frequency of the strongest mode in the band window. Neither level is uniformly better: GFN2-xTB is more physical (real charge response \u2192 intensities) and better for carbonyls and ring modes; MMFF94s was parametrised on X\u2013H and nitrile stretches and can be closer there."
+}
