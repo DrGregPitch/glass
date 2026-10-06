@@ -113,9 +113,18 @@ def api_validation():
     hm = H.load()
     if hm and getattr(hm, "validation", None):
         v = hm.validation
+        def _nuc(k):
+            d = v.get(k, {})
+            bd = d.get("by_depth") or {}
+            deep = bd.get(4) or bd.get("4") or {}
+            return {"MAE": d.get("MAE"), "n_test": d.get("n_test"),
+                    "coverage": d.get("coverage"), "units": "ppm",
+                    "deep_match": {"MAE": deep.get("MAE"), "n": deep.get("n")}}
         out["nmr_nmrshiftdb2"] = {
-            "13C": {"MAE": v.get("13C", {}).get("MAE"), "units": "ppm"},
-            "1H": {"MAE": v.get("1H", {}).get("MAE"), "units": "ppm"},
+            "13C": _nuc("13C"),
+            "1H": _nuc("1H"),
+            "molecules": v.get("molecules"),
+            "holdout_fraction": v.get("holdout"),
             "validation": "held-out experimental spectra",
         }
     else:
