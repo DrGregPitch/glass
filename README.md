@@ -56,19 +56,14 @@ with database names and experimental data, and can be switched off per request.
   ¹H ±0.3 ppm; ¹³C ±3–5 ppm; IR ±20 cm⁻¹; UV ±5–10 nm). Use them for sanity checks and assignment support,
   not as data.
 
-## Optional: name generation for novel structures (SMILES→IUPAC model)
+## Name generation for novel structures
 
-PubChem cannot name a structure it has never seen. The server can run an optional generator
-(knowledgator/SMILES2IUPAC-canonical-base, Apache-2.0) in its own Python 3.11 environment, because it
-needs PyTorch:
-
-```
-python3.11 -m venv namer_env && namer_env/bin/pip install chemical-converters   # the model (~1 GB) downloads on first use
-```
-
-Glass detects `namer_env/` automatically (or set `CHEMXREF_NAMER_PYTHON`). Generated names are only ever
-shown after OPSIN parses them back to the identical InChIKey — a wrong guess is reported as rejected,
-never displayed as a name.
+PubChem cannot name a structure it has never seen. Glass names those with a SMILES→IUPAC model
+(knowledgator/SMILES2IUPAC-canonical-base, an MT5 sequence-to-sequence model, Apache-2.0), run
+as a sidecar process because it needs PyTorch. Several candidates are generated per structure
+in systematic, base and traditional styles, and every one is parsed back with OPSIN: a name is
+shown only when its Standard InChIKey is identical to the structure's, and the others are
+reported as rejected. An unverified name is never displayed.
 
 ## How it runs
 
