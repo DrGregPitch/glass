@@ -1,18 +1,21 @@
 # Glass
 
 A web console for chemical identity, structure, spectra and electronic structure.
+Hosted at **[chemistryconsole.glass](https://chemistryconsole.glass)**.
 
-Glass **rigorously cross-checks chemical names and SMILES**, draws journal-style structures with
-**IUPAC locant numbering**, and predicts properties and spectra. It runs as a hosted web service.
-PubChem is used only to enrich results with database names and experimental data, and can be
-switched off per request.
+![CI](https://github.com/DrGregPitch/glass/actions/workflows/ci.yml/badge.svg)
+&nbsp;·&nbsp; AGPL-3.0-or-later &nbsp;·&nbsp; Python 3.11–3.12
+
+Glass cross-checks chemical names against SMILES, draws journal-style structures with IUPAC
+locant numbering, and predicts properties and spectra. PubChem is used only to enrich results
+with database names and experimental data, and can be switched off per request.
 
 ## What it does
 
 | Input (any of) | Output |
 |---|---|
 | IUPAC / systematic name (any accepted style: preferred, CAS-inverted, trivial-systematic mixes), trivial or trade name, SMILES (any form), InChI, InChIKey, CAS RN | canonical SMILES (isomeric), canonical non-stereo SMILES, Kekulé SMILES, SMILES as entered / from OPSIN / from PubChem, InChI, StdInChIKey, formula, PubChem CID |
-| | every name PubChem knows (IUPAC, title, synonyms) **each re-parsed by OPSIN and marked `verified` only if the StdInChIKey is identical** |
+| | every name PubChem knows (IUPAC, title, synonyms), each re-parsed by OPSIN and marked `verified` only if the StdInChIKey is identical |
 | | ACS-1996-style 2D depiction, per-name IUPAC atom numbering (parent / substituent / heteroatom locants toggleable), hover an atom → the locant is highlighted in the name |
 | | 3D geometry (ETKDGv3 + MMFF94s): bond lengths, bond angles, interactive viewer |
 | | formula, molar mass, exact mass, melting/boiling point (Joback), density (Girolami), logP, TPSA, etc., plus PubChem experimental values side-by-side |
@@ -39,7 +42,7 @@ switched off per request.
   level predicts well.
 * Failed inputs get PubChem "did you mean" suggestions when online.
 
-## Rigor model (read this)
+## Rigor model
 
 * **Name → structure** is done by [OPSIN](https://opsin.ch.cam.ac.uk/) 2.9, the reference open-source
   IUPAC parser. If OPSIN cannot parse the input it falls back to a PubChem *name* lookup and **warns
@@ -69,15 +72,19 @@ never displayed as a name.
 
 ## Running it
 
-Glass is a standard FastAPI ASGI application (`app:app`); serve it with any ASGI server behind HTTPS.
-When hosting a modified copy, set `GLASS_SOURCE_URL` to your own public source — the AGPL requires the
-source offer shown at `/api/about`.
+```
+pip install -r requirements.txt
+uvicorn app:app
+```
+
+Then open <http://127.0.0.1:8000>. A JRE is required — OPSIN runs as a persistent JVM worker.
+Glass is a standard FastAPI ASGI application (`app:app`); in production serve it behind HTTPS.
 
 ## Verifying the science
 
 1. **Identity layer** (exact by construction): the InChIKey shown must match PubChem / ChemSpider /
    CAS Common Chemistry for the same structure.
-2. **NMR**: accuracy is *measured*, not quoted — `/api/validation` returns the held-out statistics
+2. **NMR**: `/api/validation` returns the held-out statistics
    (¹³C MAE 2.75 ppm on 21,896 test shifts). Per peak, the table shows basis, σ and n. Spot-check against
    SDBS (https://sdbs.db.aist.go.jp).
 3. **IR / vibrations**: the ⓘ modal shows a 12-band benchmark vs gas-phase literature for both levels;
@@ -88,9 +95,24 @@ source offer shown at `/api/about`.
 
 ## API
 
-`/api/resolve?q=…&pubchem=true`, `/api/structure?smiles=…`, `/api/properties?smiles=…`,
-`/api/spectra?smiles=…&solvent=CDCl3&mhz=400`, `/api/experimental?cid=…`, `/api/verify?name=…&inchikey=…`.
-All return JSON. (The interactive OpenAPI docs are disabled on the public deployment.)
+Every endpoint returns JSON and needs no key. Rate limits are per IP: 90 requests / 30 s
+overall, and 10 / 60 s on the five compute endpoints (`/api/spectra`, `/api/modes`,
+`/api/orbital`, `/api/electronic`, `/api/photo`), which answer `429` with `Retry-After`.
+The interactive OpenAPI docs are disabled on the public deployment.
+
+* **Identity** — `/api/resolve?q=…&pubchem=true`, `/api/verify?name=…&inchikey=…`,
+  `/api/suggest?q=…`, `/api/experimental?cid=…`
+* **Structure** — `/api/structure?smiles=…&three_d=true`, `/api/image?smiles=…&w=500&h=380`,
+  `/api/cdxml?smiles=…&numbers=false`, `/api/read` (POST: CDXML / MOL upload)
+* **Properties and spectra** — `/api/properties?smiles=…`,
+  `/api/spectra?smiles=…&solvent=CDCl3&mhz=400`, `/api/solvents`
+* **Quantum and vibrational** — `/api/modes?smiles=…&level=auto`,
+  `/api/photo?smiles=…&solvent=…`, `/api/electronic?smiles=…`,
+  `/api/orbital?smiles=…&which=homo`, `/api/atom_orbital?z=…&n=…&l=…`
+* **Elements** — `/api/elements`, `/api/atom?z=…`
+* **Provenance** — `/api/methods` (scope and limitations per method), `/api/validation`
+  (held-out NMR statistics), `/api/about` (third-party components, source offer),
+  `/api/license`, `/api/model` (the NMR model file)
 
 ## Credits and licence
 
