@@ -4,7 +4,7 @@ A web console for chemical identity, structure, spectra and electronic structure
 Hosted at **[chemistryconsole.glass](https://chemistryconsole.glass)**.
 
 ![CI](https://github.com/DrGregPitch/glass/actions/workflows/ci.yml/badge.svg)
-&nbsp;·&nbsp; AGPL-3.0-or-later &nbsp;·&nbsp; Python 3.11–3.12
+&nbsp;·&nbsp; AGPL-3.0-or-later &nbsp;·&nbsp; Python 3.12
 
 Glass cross-checks chemical names against SMILES, draws journal-style structures with IUPAC
 locant numbering, and predicts properties and spectra. PubChem is used only to enrich results
@@ -70,15 +70,12 @@ Glass detects `namer_env/` automatically (or set `CHEMXREF_NAMER_PYTHON`). Gener
 shown after OPSIN parses them back to the identical InChIKey — a wrong guess is reported as rejected,
 never displayed as a name.
 
-## Running it
+## How it runs
 
-```
-pip install -r requirements.txt
-uvicorn app:app
-```
-
-Then open <http://127.0.0.1:8000>. A JRE is required — OPSIN runs as a persistent JVM worker.
-Glass is a standard FastAPI ASGI application (`app:app`); in production serve it behind HTTPS.
+Glass is a FastAPI application served by uvicorn behind Caddy, which terminates TLS, as a
+systemd service on a Linux VM. OPSIN runs beside it as a persistent JVM worker, and requests
+are rate-limited per client IP. The deployment is the one at
+[chemistryconsole.glass](https://chemistryconsole.glass).
 
 ## Verifying the science
 
@@ -112,7 +109,8 @@ The interactive OpenAPI docs are disabled on the public deployment.
 * **Elements** — `/api/elements`, `/api/atom?z=…`
 * **Provenance** — `/api/methods` (scope and limitations per method), `/api/validation`
   (held-out NMR statistics), `/api/about` (third-party components, source offer),
-  `/api/license`, `/api/model` (the NMR model file)
+  `/api/license`, `/api/model` (the NMR model file, 9 MB, offered as nmrshiftdb2's
+  share-alike terms require)
 
 ## Credits and licence
 

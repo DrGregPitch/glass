@@ -440,8 +440,9 @@ async def _no_cache_for_app_assets(request, call_next):
 # unauthenticated) compute endpoints. A distributed flood still needs a CDN/WAF,
 # but this stops the common single-origin abuse without adding any user friction. ---
 _HEAVY_PATHS = ("/api/spectra", "/api/modes", "/api/orbital", "/api/electronic", "/api/photo")
-# NOTE: limiter state is per uvicorn worker; the service runs 2 workers, so the
-# effective per-IP allowance is ~2x these numbers. Values chosen accordingly.
+# NOTE: limiter state is per uvicorn worker, so the effective per-IP allowance is these
+# numbers times the worker count (see deploy/setup.sh). Values chosen accordingly.
+# Requires GLASS_TRUSTED_PROXY=1 behind a proxy, or every client keys on the proxy IP.
 _RL_GENERAL = (90, 30.0)       # ~180 requests / 30 s per IP effective (UI-generous)
 _RL_HEAVY = (10, 60.0)         # ~20 heavy computations / 60 s per IP effective
 _rl_general: dict[str, deque] = defaultdict(deque)
