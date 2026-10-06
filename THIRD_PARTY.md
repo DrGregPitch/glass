@@ -7,21 +7,25 @@ those present when this file was generated; see `requirements.txt` for constrain
 |---|---|---|---|---|
 | OPSIN (Open Parser for Systematic IUPAC Nomenclature), Daniel Lowe et al., University of Cambridge | Parses IUPAC/systematic names to structures; provides per-atom locants used for the numbering overlay | 2.9.0 (jar bundled by py2opsin) | MIT | https://github.com/dan2097/opsin — Lowe, D. M.; Corbett, P. T.; Murray-Rust, P.; Glen, R. C. *J. Chem. Inf. Model.* **2011**, 51, 739–753 |
 | py2opsin | Ships the OPSIN jar; we only use its file location | 1.2.0 | MIT | https://github.com/JacksonBurns/py2opsin |
-| RDKit | Cheminformatics toolkit: structure handling, canonical SMILES/InChI, 2D and 3D coordinates, descriptors | 2026.3.1 | BSD-3-Clause | https://www.rdkit.org |
+| RDKit | Cheminformatics toolkit: structure handling, canonical SMILES/InChI, 2D and 3D coordinates, descriptors | 2026.3.6 | BSD-3-Clause | https://www.rdkit.org |
 | InChI Trust library (via RDKit) | Standard InChI / InChIKey used for every identity check | bundled | IUPAC/InChI Trust Licence | https://www.inchi-trust.org |
 | thermo (Caleb Bell) | Physical-property estimation | 0.6.1 | MIT | https://github.com/CalebBell/thermo |
-| FastAPI | HTTP API | 0.115.6 | MIT | https://fastapi.tiangolo.com |
-| uvicorn | ASGI server | 0.34.0 | BSD-3-Clause | https://www.uvicorn.org |
-| requests | PubChem HTTP client | 2.32.5 | Apache-2.0 | https://requests.readthedocs.io |
-| NumPy | Hessian / normal-mode linear algebra | 2.3.5 | BSD-3-Clause | https://numpy.org |
-| SciPy | Special functions for hydrogenic orbital cubes (`core/atom.py`) and geometry optimisation (`core/vibrations.py`) | 1.16.x | BSD-3-Clause | https://scipy.org |
+| FastAPI | HTTP API | 0.141.1 | MIT | https://fastapi.tiangolo.com |
+| uvicorn | ASGI server | 0.52.4 | BSD-3-Clause | https://www.uvicorn.org |
+| requests | PubChem HTTP client | 2.34.2 | Apache-2.0 | https://requests.readthedocs.io |
+| NumPy | Hessian / normal-mode linear algebra | 2.5.2 | BSD-3-Clause | https://numpy.org |
+| SciPy | Special functions for hydrogenic orbital cubes (`core/atom.py`) and geometry optimisation (`core/vibrations.py`) | 1.18.1 | BSD-3-Clause | https://scipy.org |
 | 3Dmol.js | Browser 3D viewer and vibrational-mode animation (loaded from cdnjs at runtime, not redistributed) | 2.0.4 | BSD-3-Clause | https://3dmol.csb.pitt.edu — Rego, N.; Koes, D. *Bioinformatics* **2015**, 31, 1322–1324 |
 | Ketcher (EPAM Systems) | In-browser structure editor for 'Edit structure' (standalone build with Indigo WebAssembly, vendored unmodified in `static/vendor/ketcher/`, with its Apache-2.0 `LICENSE` and `NOTICE` included there) | 3.17.0 | Apache-2.0 | https://github.com/epam/ketcher |
-| tblite (Sebastian Ehlert et al.) | Semiempirical electronic-structure calculations | pip wheel | LGPL-3.0 | https://tblite.readthedocs.io — Bannwarth, Ehlert, Grimme *J. Chem. Theory Comput.* **2019**, 15, 1652 |
+| tblite (Sebastian Ehlert et al.) | Semiempirical electronic-structure calculations | 0.7.0 | LGPL-3.0 | https://tblite.readthedocs.io — Bannwarth, Ehlert, Grimme *J. Chem. Theory Comput.* **2019**, 15, 1652 |
 | nmrshiftdb2 (Stefan Kuhn, Christoph Steinbeck et al.) | Experimental reference data (model component; raw dataset not redistributed) | 2024 export | nmrshiftdb2 Database Licence, derived from ODbL 1.0: attribution, share-alike on derived databases and produced works, and section 4.5 requiring dependent software to be OSI-licensed. Raw database not redistributed here; the model trained from it is, under the same terms (`data/LICENSE-DATA.md`) | Steinbeck, Krause, Kuhn *J. Chem. Inf. Comput. Sci.* **2003**, 43, 1733 |
-| SMILES2IUPAC-canonical-base (Knowledgator Engineering) | Machine-learning model component | 2024 | Apache-2.0 | https://huggingface.co/knowledgator/SMILES2IUPAC-canonical-base |
-| PySCF + pyscf-properties (Sun et al.) | Quantum-chemistry calculations (orbitals and NMR shieldings) | pip | Apache-2.0 | Sun et al. *WIREs Comput. Mol. Sci.* **2018**, 8, e1340 |
-| Java runtime (Amazon Corretto / Eclipse Temurin) | Required to run OPSIN; installed by the user, not redistributed | user's | GPLv2 + Classpath Exception | https://adoptium.net |
+| SMILES2IUPAC-canonical-base (Knowledgator Engineering) | MT5 seq2seq model generating candidate IUPAC names for structures absent from PubChem; every candidate is gated by an OPSIN InChIKey round-trip | 2024 | Apache-2.0 | https://huggingface.co/knowledgator/SMILES2IUPAC-canonical-base |
+| chemical-converters | Loader/inference wrapper for the SMILES→IUPAC model | 0.1.2 | Apache-2.0 | https://pypi.org/project/chemical-converters |
+| PyTorch (CPU build) | Runs the SMILES→IUPAC model in the name-generation sidecar | 2.14.1+cpu | BSD-3-Clause | https://pytorch.org |
+| Hugging Face transformers | MT5 model and tokenizer implementation for the name generator | 4.48.2 | Apache-2.0 | https://github.com/huggingface/transformers |
+| tokenizers, safetensors (Hugging Face) | Tokenisation and weight loading for the name generator | 0.21.4 / 0.8.0 | Apache-2.0 | https://github.com/huggingface |
+| PySCF + pyscf-properties (Sun et al.) | Quantum-chemistry calculations (orbitals and NMR shieldings) | 2.14.0 / 0.1.0 | Apache-2.0 | Sun et al. *WIREs Comput. Mol. Sci.* **2018**, 8, e1340 |
+| Java runtime (OpenJDK) | Required to run OPSIN; installed from the OS packages, not redistributed | 21 | GPLv2 + Classpath Exception | https://openjdk.org |
 | PubChem (NCBI / NLM) | Optional online lookup: database names, IUPAC name, synonyms, CAS RN, experimental melting/boiling points, density, solubility; periodic-table element data (`data/periodic_table.json`, vendored) | PUG REST / PUG View | Public-domain US Government data; usage policy: ≤5 requests/s | https://pubchem.ncbi.nlm.nih.gov — Kim, S. et al. *Nucleic Acids Res.* **2023**, 51, D1373–D1380 |
 
 ## Methods implemented in this codebase (not third-party code, but published methods)
