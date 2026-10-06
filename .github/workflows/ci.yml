@@ -15,11 +15,12 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - name: Set up Python
         run: uv venv --python ${{ matrix.python-version }}
-      # The quantum stack (tblite, pyscf) is conda-level and not reliably
-      # pip-installable; it is intentionally excluded here. The four tests that
-      # need it skip cleanly via pytest.importorskip, so CI exercises the full
-      # offline surface (name<->structure, HOSE NMR, properties, API contract).
-      - name: Install (light deps)
-        run: uv pip install rdkit py2opsin fastapi uvicorn requests thermo numpy scipy pydantic pytest httpx
+      # The full dependency set, including the quantum stack (tblite, pyscf),
+      # installs from wheels on Linux, so the complete suite runs here — the
+      # GFN2-xTB and GIAO quantum tests included. The pytest.importorskip guards
+      # keep the suite green on platforms where that stack is unavailable
+      # (e.g. macOS), where those four tests skip instead.
+      - name: Install
+        run: uv pip install -e ".[dev]"
       - name: Test
         run: uv run pytest -q
