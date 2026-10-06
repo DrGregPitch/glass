@@ -36,6 +36,7 @@ def test_hose_code_is_canonical_and_depth_sensitive():
 
 
 def test_gfn2_carbonyl_and_ring_modes():
+    pytest.importorskip("tblite")  # GFN2-xTB vibrations (optional quantum stack)
     g = V.normal_modes_gfn2(Chem.MolFromSmiles("CC(=O)C"))
     assert g.get("level") == "GFN2-xTB" and len(g["modes"]) >= 3 * 10 - 7      # a methyl torsion may come out imaginary and is dropped
     co = max((m for m in g["modes"] if 1650 <= m["freq"] <= 1800), key=lambda m: m["intensity"])

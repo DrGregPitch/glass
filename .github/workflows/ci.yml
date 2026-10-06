@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Set up Python
+        run: uv venv --python ${{ matrix.python-version }}
+      # The quantum stack (tblite, pyscf) is conda-level and not reliably
+      # pip-installable; it is intentionally excluded here. The four tests that
+      # need it skip cleanly via pytest.importorskip, so CI exercises the full
+      # offline surface (name<->structure, HOSE NMR, properties, API contract).
+      - name: Install (light deps)
+        run: uv pip install rdkit py2opsin fastapi uvicorn requests thermo numpy scipy pydantic pytest httpx
+      - name: Test
+        run: uv run pytest -q

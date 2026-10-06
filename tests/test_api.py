@@ -1,5 +1,6 @@
 """API contract tests (offline: pubchem=false)."""
 import sys, pathlib
+import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
 import app as appmod
@@ -51,6 +52,7 @@ def test_verify_four_way():
 
 
 def test_electronic():
+    pytest.importorskip("tblite")  # GFN2-xTB electronic structure (optional quantum stack)
     j = client.get("/api/electronic", params={"smiles": "c1ccccc1"}).json()
     assert j["gap_ev"] and 1.0 < j["gap_ev"] < 8.0 and abs(j["dipole_debye"]) < 0.05
     assert any(l["label"] == "HOMO" for l in j["levels"]) and len(j["charges"]) == 12
@@ -59,6 +61,7 @@ def test_electronic():
 
 
 def test_giao_level():
+    pytest.importorskip("pyscf")  # GIAO quantum NMR (optional quantum stack)
     j = client.get("/api/spectra", params={"smiles": "c1ccccc1", "nmr": "giao"}).json()
     c = [p for p in j["c13"]["peaks"]]
     assert all(p["source"] == "giao" for p in c) and abs(c[0]["shift"] - 128.4) < 4
@@ -69,6 +72,7 @@ def test_giao_level():
 
 
 def test_orbital_cube():
+    pytest.importorskip("pyscf")  # orbital cubes via PySCF (optional quantum stack)
     j = client.get("/api/orbital", params={"smiles": "C=C", "which": "homo"}).json()
     assert int(j["cube"].splitlines()[2].split()[0]) == 6 and j["label"] == "HOMO" and j["occ"] == 2
     j2 = client.get("/api/orbital", params={"smiles": "C=C", "which": "lumo", "offset": 1}).json()
