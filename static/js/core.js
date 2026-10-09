@@ -96,13 +96,8 @@ async function resolve() {
   api('/api/structure', { smiles: smi, three_d: false }).then(d => { renderStructure(d); return api('/api/structure', { smiles: smi, three_d: true }); })
     .then(d => { GEOM = d.geometry || null; if (d.geometry && !d.geometry.error) render3D(d.geometry); else $('#geomnote').textContent = d.geometry ? d.geometry.error : ''; })
     .catch(e => { if (!DEP) $('#struct').textContent = e.message; });
-  // a substituent name (methyl, phenyl) resolves to a fragment with attachment points: structure only
-  $$('#paneRail button').forEach(b => b.style.display = (R.substituent && b.dataset.pane !== 'structure') ? 'none' : '');
-  if (R.substituent) { showPane('structure'); $('#props').innerHTML = '<span class="hint">not computed for a substituent fragment</span>'; }
-  else {
-    api('/api/properties', { smiles: smi }).then(p => { PROPS = p; renderProps(p); if (typeof renderExpSection === 'function') renderExpSection(); }).catch(e => $('#props').textContent = e.message);
-    loadSpectra();
-  }
+  api('/api/properties', { smiles: smi }).then(p => { PROPS = p; renderProps(p); if (p.substituent_note) $('#props').insertAdjacentHTML('beforeend', `<div class="hint" style="margin-top:6px">${esc(p.substituent_note)}</div>`); if (typeof renderExpSection === 'function') renderExpSection(); }).catch(e => $('#props').textContent = e.message);
+  loadSpectra();
   $('#exp').innerHTML = R.cid ? '<span class="spin"></span> loading…' : '<span class="hint">not in PubChem / offline</span>';
   if (R.cid) api('/api/experimental', { cid: R.cid }).then(renderExp).catch(() => $('#exp').textContent = 'unavailable');
   window.scrollTo({ top: 0 });

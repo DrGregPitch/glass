@@ -5,7 +5,7 @@
 async function loadSpectra() {
   if (!R) return;
   const mhz = +$('#mhz').value || 400; $('#c13mhz').textContent = `(¹³C at ${(mhz / 3.976).toFixed(1)} MHz)`;
-  try { SPEC = await api('/api/spectra', { smiles: R.smiles_canonical, solvent: $('#solvent').value, mhz, nmr: $('#nmrlevel').value }); } catch (e) { return; }
+  try { SPEC = await api('/api/spectra', { smiles: R.smiles_canonical, solvent: $('#solvent').value, mhz, nmr: $('#nmrlevel').value }); } catch (e) { specUnavailable(e.message); return; }
   levelNote();
   if (SPEC.giao_note) $('#levelnote').textContent += '  ·  ' + SPEC.giao_note;
   SPEC.h1.peaks.sort((a, b) => b.shift - a.shift);
@@ -27,6 +27,16 @@ async function loadSpectra() {
     ? `moves ${exch} exchangeable proton${exch > 1 ? 's' : ''} and the reference`
     : 'no exchangeable protons here, so the ¹H/¹³C shifts are unchanged by solvent; only the reference line moves';
   $('#solvnote').textContent = `${sv.nmr ? 'NMR in ' + sv.nmr + ' · ' : 'no common deuterated form for NMR · '}ε = ${sv.eps}, E_T(30) = ${sv.et30}, Δf = ${sv.delta_f}${sv.protic ? ' · protic' : ''}; NMR: ${nmrEffect}. Also applied to IR C=O / X–H, UV–Vis solvatochromism and the emission Stokes shift`;
+}
+function specUnavailable(msg) {
+  // e.g. a substituent fragment: the panes stay, each one says why there is nothing to show
+  SPEC = null; IRDATA = null; MODES = null; PL = null;
+  const row = `<tr><td class="hint">${esc(msg)}</td></tr>`;
+  ['t_h1', 't_c13', 't_modes', 't_pl', 't_ir', 't_uv'].forEach(id => { const el = $('#' + id); if (el) el.innerHTML = row; });
+  ['irnote', 'uvnote', 'uvsolv', 'levelnote', 'plnote'].forEach(id => { const el = $('#' + id); if (el) el.textContent = ''; });
+  const ps = $('#plsummary'); if (ps) ps.innerHTML = `<span class="hint">${esc(msg)}</span>`;
+  ['c_h1', 'c_c13', 'c_ir', 'c_uv', 'c_pl'].forEach(id => { const cv = $('#' + id); if (cv && cv.getContext) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); });
+  const fc = $('#fc'); if (fc) fc.innerHTML = '';
 }
 function renderSpectraTables() {
   const h = SPEC.h1, c = SPEC.c13;

@@ -442,7 +442,9 @@ def _regions_from_parse(name: str, parse: dict, id2ti: dict, mol, locs: list) ->
             k = low.find(t["v"].lower(), prev_start)
             if k < 0:
                 return None
-        span[t["i"]] = (cursor if 0 < k - cursor <= 2 else k, k + len(t["v"]))
+        # an elided letter belongs to the word that follows it (benz|o|ic acid), never to a locant or hyphen (purin|e|-2,6-dione)
+        fold = 0 < k - cursor <= 2 and t["el"] not in ("locant", "multiplier", "hyphen", "openbracket", "closebracket", "structuralOpenBracket", "structuralCloseBracket")
+        span[t["i"]] = (cursor if fold else k, k + len(t["v"]))
         prev_start, cursor = k, max(cursor, k + len(t["v"]))
 
     extra_by_v: dict = {}
@@ -743,7 +745,7 @@ def resolve(text: str, want_pubchem: bool = True) -> Resolution:
                     mol = cap_radicals(m); kind = "substituent name (OPSIN, radicals allowed)"; smiles_opsin = parse["smiles"]
                     substituent = True
                     warnings.append("Substituent name: OPSIN parsed it as a radical, shown here with attachment points (*). "
-                                    "Spectra and properties are not computed for fragments.")
+                                    "Properties are those of the radical fragment; spectra are not computed for fragments.")
         # 4. trivial / trade name via PubChem
         if mol is None and want_pubchem:
             pc = pubchem_by_name(raw)
