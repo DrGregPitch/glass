@@ -49,7 +49,7 @@ def api_resolve(q: str = Query(..., min_length=1, max_length=10_000), pubchem: b
 def _reject_fragment(smiles: str) -> None:
     """Substituent inputs carry attachment points (*); spectra and properties are meaningless for them."""
     if "*" in smiles:
-        raise HTTPException(400, "substituent fragment (attachment point *): spectra and properties are not computed")
+        raise HTTPException(400, "substituent fragment (attachment point *): spectra are not computed; properties are those of the radical")
 
 
 @functools.lru_cache(maxsize=512)
@@ -67,9 +67,27 @@ def api_structure(smiles: str, three_d: bool = True):
 
 
 @functools.lru_cache(maxsize=512)
+def _uncap(m: Chem.Mol) -> Chem.Mol:
+    """Attachment points (*) back to a radical: the species a substituent name actually denotes."""
+    rw = Chem.RWMol(m)
+    for a in sorted((a for a in rw.GetAtoms() if a.GetAtomicNum() == 0), key=lambda a: -a.GetIdx()):
+        for nb in a.GetNeighbors():
+            nb.SetNumRadicalElectrons(nb.GetNumRadicalElectrons() + 1)
+        rw.RemoveAtom(a.GetIdx())
+    out = rw.GetMol()
+    Chem.SanitizeMol(out)
+    return out
+
+
 def _props(smiles: str):
-    _reject_fragment(smiles)
-    return P.predict(_mol(smiles), smiles)
+    m = _mol(smiles)
+    if "*" not in smiles:
+        return P.predict(m, smiles)
+    # a substituent: report the radical it denotes (C6H5*), not a molecule with a dummy atom in it
+    rad = _uncap(m)
+    d = P.predict(rad, Chem.MolToSmiles(rad))
+    d["substituent_note"] = "properties of the radical fragment; the attachment point is not an atom"
+    return d
 
 
 @app.get("/api/properties")
