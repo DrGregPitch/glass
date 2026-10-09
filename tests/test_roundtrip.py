@@ -148,3 +148,60 @@ def test_unknown_solvent_rejected():
 def test_pubchem_enrichment():
     r = N.resolve("aspirin")
     assert r.cid == 2244 and r.cas == "50-78-2" and r.iupac_name and any(e.verified and e.kind == "iupac" for e in r.names)
+
+
+# ----------------------------------------------------------------------------- name regions
+def _region_symbols(name):
+    """{(kind, label): sorted element symbols} for every region of the resolved name, plus the entry."""
+    from rdkit import Chem
+    r = N.resolve(name, want_pubchem=False)
+    e = next(e for e in r.names if e.regions)
+    m = Chem.MolFromSmiles(r.smiles_canonical)
+    sym = lambda atoms: sorted(m.GetAtomWithIdx(i).GetSymbol() for i in atoms)
+    return e, {(g["kind"], g["label"]): sym(g["atoms"]) for g in e.regions}
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("2-methyl-4-(2-oxopropyl)benzoic acid", {
+        ("group", "4-(2-oxopropyl)"): ["C", "C", "C", "O"],
+        ("prefix", "2-oxo"): ["O"],
+        ("prefix", "2-methyl"): ["C"],
+        ("parent", "benzoic acid"): ["C"] * 7 + ["O", "O"]}),
+    ("9,10-dimethylanthracene", {
+        ("prefix", "9,10-dimethyl"): ["C", "C"],
+        ("parent", "anthracene"): ["C"] * 14}),
+    ("anthracene", {("parent", "anthracene"): ["C"] * 14}),
+    ("2-[4-(2-methylpropyl)phenyl]propanoic acid", {
+        ("group", "4-(2-methylpropyl)"): ["C"] * 4,
+        ("group", "2-[4-(2-methylpropyl)phenyl]"): ["C"] * 10,
+        ("prefix", "2-methyl"): ["C"],
+        ("parent", "propanoic acid"): ["C", "C", "C", "O", "O"]}),
+    ("4-chloro-N,N-dimethylaniline", {
+        ("prefix", "4-chloro"): ["Cl"],
+        ("prefix", "N,N-dimethyl"): ["C", "C"],
+        ("parent", "aniline"): ["C"] * 6 + ["N"]}),
+    ("2,2,2-trifluoroethanol", {
+        ("prefix", "2,2,2-trifluoro"): ["F", "F", "F"],
+        ("parent", "ethanol"): ["C", "C", "O"]}),
+    ("methylbenzene", {("parent", "benzene"): ["C"] * 6}),   # unlocanted prefix: no region, parent still exact
+])
+def test_name_regions_map_words_to_atoms(name, expected):
+    _, got = _region_symbols(name)
+    assert got == expected, f"{name}: {got}"
+
+
+@pytest.mark.parametrize("name", ["2-methyl-4-(2-oxopropyl)benzoic acid", "2-[4-(2-methylpropyl)phenyl]propanoic acid",
+                                  "4-chloro-N,N-dimethylaniline", "2,2,2-trifluoroethanol"])
+def test_name_regions_are_consistent(name):
+    e, _ = _region_symbols(name)
+    nm = e.name
+    parent = next(g for g in e.regions if g["kind"] == "parent")
+    for g in e.regions:
+        assert 0 <= g["start"] < g["end"] <= len(nm) and g["label"] == nm[g["start"]:g["end"]]
+        assert g["atoms"], f"empty region {g}"
+        if g["kind"] == "prefix" and g["end"] <= parent["start"]:
+            assert not set(g["atoms"]) & set(parent["atoms"]), "a depth-0 prefix must not share atoms with the parent"
+        if g["kind"] == "group":
+            for h in e.regions:
+                if h["kind"] == "prefix" and g["start"] <= h["start"] and h["end"] <= g["end"]:
+                    assert set(h["atoms"]) <= set(g["atoms"]), "a group must contain its own prefixes"

@@ -120,6 +120,8 @@ text.loc.parent{fill:#17171a}text.loc.sub{fill:#8a8a93}text.loc.hetero{fill:#555
 text.loc.hlab{fill:#44444a;font-size:12px}
 .namebox{font-size:18px;padding:4px 0 10px;min-height:36px;word-break:break-word;font-weight:600}
 .namebox mark{background:#e8e6da;color:#17171a;border-radius:3px;padding:0 2px}
+.namebox .nm{border-bottom:1px dotted var(--amber);border-radius:2px;cursor:default}
+.namebox .nm:hover{background:var(--amber-soft)}
 .toggles{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted);margin-bottom:8px}
 .toggles label{white-space:nowrap;display:flex;gap:5px;align-items:center}
 .structframe{border:1px solid var(--line);border-radius:12px;background:var(--paperbox);background-image:radial-gradient(#ecebe4 1px,transparent 1px);background-size:14px 14px;padding:10px;display:block;width:100%}
@@ -390,7 +392,7 @@ footer{width:100%;box-sizing:border-box;max-width:1440px;margin:auto auto 0;padd
           <label style="font-weight:400"><input type="checkbox" id="expnum"> numbering in exports</label><button class="small" id="dlsvg">⤓ SVG</button><button class="small" id="dlpng2">⤓ PNG</button><button class="small" id="dlcdxml">⤓ CDXML</button><button class="small" id="dl3d">⤓ 3D PNG</button><button class="small" id="dlGeom">⤓ geometry CSV</button>
         </div>
         <div class="structframe"><div id="struct"></div></div>
-        <div class="hint" id="hoverinfo">Hover an atom to highlight its locant in the name.</div>
+        <div class="hint" id="hoverinfo">Hover an atom to highlight its locant in the name, or a word in the name to highlight its atoms.</div>
       </div>
       <div>
         <div class="ctl" style="margin-bottom:6px"><label>Surface <select id="surface"><option value="none">none</option><option value="vdw-q">van der Waals · partial charge</option><option value="sas-q">solvent-accessible · partial charge</option><optgroup label="molecular orbitals" id="mogroup"><option value="mo:homo:0">HOMO</option><option value="mo:lumo:0">LUMO</option></optgroup></select></label><label class="hint"><input type="checkbox" id="showdip"> dipole arrow</label><button class="small" id="mobtn">⚛ MO diagram</button><span class="hint" id="surfnote"></span><span class="ptlegend" id="surflegend" style="display:none"><span id="surfmin"></span><span class="bar" id="surfbar"></span><span id="surfmax"></span></span></div>
