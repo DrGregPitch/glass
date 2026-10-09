@@ -19,7 +19,14 @@ async function loadSpectra() {
   $('#uvnote').textContent = (uv.colour ? uv.colour + '. ' : '') + uv.note;
   $('#uvsolv').textContent = uv.solvent_note || '';
   $('#irnote').textContent = (SPEC.ir.solvent_note || '') + ' · red sticks: normal modes (gas phase), click to animate';
-  const sv = SPEC.solvent; $('#solvnote').textContent = `${sv.nmr ? 'NMR in ' + sv.nmr + ' · ' : 'no common deuterated form for NMR · '}ε = ${sv.eps}, E_T(30) = ${sv.et30}, Δf = ${sv.delta_f}${sv.protic ? ' · protic' : ''}; applied to NMR exchangeables, IR C=O / X–H, UV–Vis solvatochromism and the emission Stokes shift`;
+  const sv = SPEC.solvent;
+  // Solvent only moves exchangeable protons; with none present the NMR is expected to be
+  // identical across solvents, so say that rather than leave the control looking inert.
+  const exch = (SPEC.h1 && SPEC.h1.peaks || []).filter(p => p.exchangeable).length;
+  const nmrEffect = exch
+    ? `moves ${exch} exchangeable proton${exch > 1 ? 's' : ''} and the reference`
+    : 'no exchangeable protons here, so the ¹H/¹³C shifts are unchanged by solvent; only the reference line moves';
+  $('#solvnote').textContent = `${sv.nmr ? 'NMR in ' + sv.nmr + ' · ' : 'no common deuterated form for NMR · '}ε = ${sv.eps}, E_T(30) = ${sv.et30}, Δf = ${sv.delta_f}${sv.protic ? ' · protic' : ''}; NMR: ${nmrEffect}. Also applied to IR C=O / X–H, UV–Vis solvatochromism and the emission Stokes shift`;
 }
 function renderSpectraTables() {
   const h = SPEC.h1, c = SPEC.c13;
