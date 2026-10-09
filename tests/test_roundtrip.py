@@ -166,6 +166,7 @@ def _region_symbols(name):
         ("group", "4-(2-oxopropyl)"): ["C", "C", "C", "O"],
         ("prefix", "2-oxo"): ["O"],
         ("prefix", "2-methyl"): ["C"],
+        ("prefix", "propyl"): ["C"] * 3,                   # the bracket's own hydride is a word too
         ("parent", "benzoic acid"): ["C"] * 7 + ["O", "O"],
         ("suffix", "oic acid"): ["C", "O", "O"]}),
     ("9,10-dimethylanthracene", {
@@ -176,6 +177,8 @@ def _region_symbols(name):
         ("group", "4-(2-methylpropyl)"): ["C"] * 4,
         ("group", "2-[4-(2-methylpropyl)phenyl]"): ["C"] * 10,
         ("prefix", "2-methyl"): ["C"],
+        ("prefix", "propyl"): ["C"] * 3,
+        ("prefix", "phenyl"): ["C"] * 6,
         ("parent", "propanoic acid"): ["C", "C", "C", "O", "O"],
         ("suffix", "oic acid"): ["C", "O", "O"]}),
     ("4-chloro-N,N-dimethylaniline", {
@@ -204,7 +207,11 @@ def _region_symbols(name):
         ("prefix", "2-chloro"): ["Cl"],
         ("parent", "benzoic acid"): ["C"] * 7 + ["O", "O"],
         ("suffix", "oic acid"): ["C", "O", "O"]}),
-    ("methylbenzene", {("parent", "benzene"): ["C"] * 6}),   # unlocanted prefix: no region, parent still exact
+    ("methylbenzene", {("prefix", "methyl"): ["C"], ("parent", "benzene"): ["C"] * 6}),   # OPSIN places the unlocanted prefix
+    ("4'-methyl-[1,1'-biphenyl]-4-ol", {                      # ring assembly: the bracket is part of the parent word
+        ("prefix", "4'-methyl"): ["C"],
+        ("parent", "[1,1'-biphenyl]-4-ol"): ["C"] * 12 + ["O"],
+        ("suffix", "4-ol"): ["O"]}),
     ("2-Methyl-2-butanol", {                                 # PubChem title: capitalised, CAS-style locant before the hydride
         ("prefix", "2-Methyl"): ["C"],
         ("parent", "2-butanol"): ["C"] * 4 + ["O"],
@@ -244,3 +251,11 @@ def test_repeated_substituent_with_primed_locant_is_a_substituent():
     methyls = [i for i, a in enumerate(m.GetAtoms()) if a.GetSymbol() == "C" and not a.IsInRing()]
     assert len(methyls) == 2 and all(e.fragments[i] == "sub" for i in methyls), [(i, e.locants[i], e.fragments[i]) for i in methyls]
     assert sum(1 for f in e.fragments if f == "parent") == 14
+
+
+@pytest.mark.parametrize("name, smiles", [("methyl", "*C"), ("phenyl", "*c1ccccc1"), ("acetyl", "*C(C)=O")])
+def test_substituent_names_resolve_with_attachment_points(name, smiles):
+    from rdkit import Chem
+    r = N.resolve(name, want_pubchem=False)
+    assert r.substituent and r.smiles_canonical == Chem.CanonSmiles(smiles), (r.substituent, r.smiles_canonical)
+    assert any("attachment point" in w for w in r.warnings)

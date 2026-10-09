@@ -92,9 +92,17 @@ async function resolve() {
   $('#nmrdb').href = 'https://www.nmrdb.org/new_predictor/index.shtml?v=v2.157.0&smiles=' + encodeURIComponent(smi);
   $('#struct').innerHTML = '<div class="hint" style="padding:30px"><span class="spin"></span> drawing…</div>';
   $('#props').innerHTML = '<span class="hint"><span class="spin"></span> computing…</span>';
-  api('/api/structure', { smiles: smi }).then(renderStructure).catch(e => $('#struct').textContent = e.message);
-  api('/api/properties', { smiles: smi }).then(p => { PROPS = p; renderProps(p); if (typeof renderExpSection === 'function') renderExpSection(); }).catch(e => $('#props').textContent = e.message);
-  loadSpectra();
+  // 2D first (fast: overlay, locants and hover exist as soon as it lands), then the 3D embed and everything hung off it
+  api('/api/structure', { smiles: smi, three_d: false }).then(d => { renderStructure(d); return api('/api/structure', { smiles: smi, three_d: true }); })
+    .then(d => { GEOM = d.geometry || null; if (d.geometry && !d.geometry.error) render3D(d.geometry); else $('#geomnote').textContent = d.geometry ? d.geometry.error : ''; })
+    .catch(e => { if (!DEP) $('#struct').textContent = e.message; });
+  // a substituent name (methyl, phenyl) resolves to a fragment with attachment points: structure only
+  $$('#paneRail button').forEach(b => b.style.display = (R.substituent && b.dataset.pane !== 'structure') ? 'none' : '');
+  if (R.substituent) { showPane('structure'); $('#props').innerHTML = '<span class="hint">not computed for a substituent fragment</span>'; }
+  else {
+    api('/api/properties', { smiles: smi }).then(p => { PROPS = p; renderProps(p); if (typeof renderExpSection === 'function') renderExpSection(); }).catch(e => $('#props').textContent = e.message);
+    loadSpectra();
+  }
   $('#exp').innerHTML = R.cid ? '<span class="spin"></span> loading…' : '<span class="hint">not in PubChem / offline</span>';
   if (R.cid) api('/api/experimental', { cid: R.cid }).then(renderExp).catch(() => $('#exp').textContent = 'unavailable');
   window.scrollTo({ top: 0 });
@@ -185,18 +193,18 @@ function renderNameBox() {
   }
   box.innerHTML = out + (hasNum(SEL) ? '' : ' <span class="hint">(no locants: not a systematic name)</span>');
   const apply = el => {
-    const g = regions[+el.dataset.k]; nameHover = new Set(g.atoms); drawOverlay();
+    const g = regions[+el.dataset.k]; nameHover = new Set(g.atoms); updateHover();
     const what = { parent: 'parent hydride', group: 'substituent group', prefix: 'substituent', suffix: 'characteristic group' }[g.kind] || g.kind;
     $('#hoverinfo').textContent = `${what} "${g.label}" \u00b7 ${g.atoms.length} atom${g.atoms.length === 1 ? '' : 's'}`;
   };
   // a pinned word keeps its atoms lit after the pointer leaves; clicking it again unpins
   const pinnedEl = namePinned && namePinned.name === name ? $(`#namebox .nm[data-k="${namePinned.k}"]`) : null;
   if (pinnedEl) pinnedEl.classList.add('pinned'); else namePinned = null;
-  const rest = () => { if (pinnedEl) apply(pinnedEl); else { nameHover = new Set(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; } };
+  const rest = () => { if (pinnedEl) apply(pinnedEl); else { nameHover = new Set(); updateHover(); $('#hoverinfo').textContent = HOVER_HINT; } };
   $$('#namebox .nm').forEach(el => {
     el.onmouseenter = () => apply(el);
     el.onmouseleave = () => { const outer = el.parentElement && el.parentElement.closest('.nm'); if (outer) apply(outer); else rest(); };
-    el.onclick = ev => { ev.stopPropagation(); const k = +el.dataset.k; namePinned = (namePinned && namePinned.name === name && namePinned.k === k) ? null : { name, k }; renderNameBox(); const p = namePinned && $(`#namebox .nm[data-k="${k}"]`); if (p) apply(p); else { nameHover = new Set(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; } };
+    el.onclick = ev => { ev.stopPropagation(); const k = +el.dataset.k; namePinned = (namePinned && namePinned.name === name && namePinned.k === k) ? null : { name, k }; renderNameBox(); const p = namePinned && $(`#namebox .nm[data-k="${k}"]`); if (p) apply(p); else { nameHover = new Set(); updateHover(); $('#hoverinfo').textContent = HOVER_HINT; } };
   });
 }
 

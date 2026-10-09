@@ -123,6 +123,12 @@ text.loc.hlab{fill:#44444a;font-size:12px}
 .namebox .nm{border-bottom:1px dotted var(--amber);border-radius:2px;cursor:default}
 .namebox .nm:hover{background:var(--amber-soft)}
 .namebox .nm.pinned{background:var(--amber-soft);border-bottom-style:solid}
+.toggles details{display:inline-block;vertical-align:middle}
+.toggles details summary{cursor:pointer;list-style:none;font-weight:600}
+.toggles details summary::-webkit-details-marker{display:none}
+.exportgrid{display:grid;gap:6px;padding:8px 0 4px}
+.exportgrid>div{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.exportgrid>div>b{min-width:130px;font-weight:600}
 .toggles{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted);margin-bottom:8px}
 .toggles label{white-space:nowrap;display:flex;gap:5px;align-items:center}
 .structframe{border:1px solid var(--line);border-radius:12px;background:var(--paperbox);background-image:radial-gradient(#ecebe4 1px,transparent 1px);background-size:14px 14px;padding:10px;display:block;width:100%}
@@ -355,7 +361,7 @@ footer{width:100%;box-sizing:border-box;max-width:1440px;margin:auto auto 0;padd
       <details style="margin-top:12px"><summary>All identifiers <span class="hint">(regenerated from one structure; InChIKey re-checked)</span></summary>
         <table id="smiles"></table></details>
     </div>
-    <div><div class="thumb" id="thumb"><span class="spin"></span></div><div class="ctl" style="margin:8px 0 0;justify-content:flex-end"><button class="small" id="editBtn">✎ Edit structure</button><button class="small" id="dlMol">⤓ MOL</button><button class="small" id="dlPng">⤓ PNG</button></div></div>
+    <div><div class="thumb" id="thumb"><span class="spin"></span></div><div class="ctl" style="margin:8px 0 0;justify-content:flex-end"><button class="small" id="editBtn">✎ Edit structure</button></div></div>
   </section>
 
   <section class="card wide" id="sec-names" style="display:none">
@@ -386,11 +392,29 @@ footer{width:100%;box-sizing:border-box;max-width:1440px;margin:auto auto 0;padd
       <div>
         <div class="namebox" id="namebox"></div>
         <div class="toggles">
-          <label><input type="checkbox" id="t_parent"> parent locants</label>
-          <label><input type="checkbox" id="t_sub"> substituent locants (′)</label>
-          <label><input type="checkbox" id="t_het"> heteroatom / Greek</label>
-          <label><input type="checkbox" id="t_idx"> atom index</label>
-          <label style="font-weight:400"><input type="checkbox" id="expnum"> numbering in exports</label><button class="small" id="dlsvg">⤓ SVG</button><button class="small" id="dlpng2">⤓ PNG</button><button class="small" id="dlcdxml">⤓ CDXML</button><button class="small" id="dl3d">⤓ 3D PNG</button><button class="small" id="dlGeom">⤓ geometry CSV</button>
+          <label><input type="checkbox" id="t_loc"> locants</label>
+
+          <details class="more"><summary>more</summary><label><input type="checkbox" id="t_idx"> atom index</label></details>
+
+          <details class="exportmenu" id="exportMenu"><summary>⤓ Export</summary>
+
+            <div class="exportgrid">
+
+              <div><b>Structure</b><button class="small" id="dlsvg">SVG</button><button class="small" id="dlpng2">PNG</button><button class="small" id="dlcdxml">CDXML</button><button class="small" id="dlMol">MOL</button><button class="small" id="dl3d">3D PNG</button><button class="small" id="dlGeom">geometry CSV</button><label style="font-weight:400"><input type="checkbox" id="expnum"> numbering in SVG / PNG</label><button id="dlPng" hidden></button></div>
+
+              <div><b>¹H NMR</b><button class="small" data-dl="png:c_h1:1H_NMR">PNG</button><button class="small" data-dl="csv:h1">CSV</button></div>
+
+              <div><b>¹³C NMR</b><button class="small" data-dl="png:c_c13:13C_NMR">PNG</button><button class="small" data-dl="csv:c13">CSV</button></div>
+
+              <div><b>IR</b><button class="small" data-dl="png:c_ir:IR">PNG</button><button class="small" data-dl="csv:ir">CSV</button><button class="small" id="dlVib">vibration 3D PNG</button></div>
+
+              <div><b>UV–Vis</b><button class="small" data-dl="png:c_uv:UV-Vis">PNG</button><button class="small" data-dl="csv:uv">CSV</button></div>
+
+              <div><b>Photoluminescence</b><button class="small" data-dl="png:c_pl:photoluminescence">PNG</button><button class="small" data-dl="csv:pl">CSV</button><button class="small" id="dlFC">Franck–Condon SVG</button></div>
+
+            </div>
+
+          </details>
         </div>
         <div class="structframe"><div id="struct"></div></div>
         <div class="hint" id="hoverinfo">Hover an atom to highlight its locant in the name, or a word in the name to highlight its atoms; click a word to pin it.</div>
@@ -427,22 +451,22 @@ footer{width:100%;box-sizing:border-box;max-width:1440px;margin:auto auto 0;padd
       <button class="small" id="respec">Update</button>
       <a class="hint nmronly" id="nmrdb" target="_blank" rel="noopener">compare with an external predictor (nmrdb.org) ↗</a>
     </div>
-    <div class="spec"><div class="head"><b>¹H NMR</b><span class="ib" data-m="nmr">i</span><span class="hint">drag to zoom · ⌘/Ctrl + wheel · double-click resets · click a peak to select</span><span class="dl"><button class="small" data-dl="png:c_h1:1H_NMR">⤓ PNG</button><button class="small" data-dl="csv:h1">⤓ CSV</button></span></div>
+    <div class="spec"><div class="head"><b>¹H NMR</b><span class="ib" data-m="nmr">i</span><span class="hint">drag to zoom · ⌘/Ctrl + wheel · double-click resets · click a peak to select</span><span class="dl"></span></div>
       <div class="body"><div><canvas class="chart nmr" id="c_h1"></canvas></div>
       <div><div class="lbl">protons: hover a signal or a row</div><div class="structbox" id="structH"></div><div class="scroll tall"><table id="t_h1"></table></div></div></div></div>
-    <div class="spec"><div class="head"><b>¹³C{¹H} NMR</b><span class="ib" data-m="nmr">i</span><span class="hint">proton-decoupled; quaternary carbons drawn weaker</span><span class="dl"><button class="small" data-dl="png:c_c13:13C_NMR">⤓ PNG</button><button class="small" data-dl="csv:c13">⤓ CSV</button></span></div>
+    <div class="spec"><div class="head"><b>¹³C{¹H} NMR</b><span class="ib" data-m="nmr">i</span><span class="hint">proton-decoupled; quaternary carbons drawn weaker</span><span class="dl"></span></div>
       <div class="body"><div><canvas class="chart nmr" id="c_c13"></canvas></div>
       <div><div class="lbl">carbons: hover a signal or a row</div><div class="structbox" id="struct2"></div><div class="scroll tall"><table id="t_c13"></table></div></div></div></div>
 
     <div class="spec"><div class="head"><b>Experimental section</b><span class="badge info plain">predicted draft</span><span class="hint">journal-style text generated from the predicted shifts; verify against measured spectra before publication</span><span class="dl"><button class="small" id="copyExpSec">⧉ copy text</button></span></div>
       <div id="expsec" style="background:var(--paperbox);border:1px solid var(--line);border-radius:12px;padding:14px 18px;font:13px/1.8 var(--sans);color:#17171a;user-select:text"></div></div>
-    <div class="spec"><div class="head"><b>IR</b><span class="ib" data-m="ir_groups,ir_modes">i</span><label class="hint" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap" title="Vibrational level of theory">level <select id="viblevel"><option value="auto">auto (higher level ≤45 heavy atoms)</option><option value="gfn2">quantum</option><option value="mmff">fast (force field)</option></select></label><span class="hint" id="irnote">blue: group-frequency simulation · red sticks: normal modes, click to animate</span><span class="dl"><button class="small" data-dl="png:c_ir:IR">⤓ PNG</button><button class="small" data-dl="csv:ir">⤓ CSV</button><button class="small" id="dlVib">⤓ 3D PNG</button></span></div>
+    <div class="spec"><div class="head"><b>IR</b><span class="ib" data-m="ir_groups,ir_modes">i</span><label class="hint" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap" title="Vibrational level of theory">level <select id="viblevel"><option value="auto">auto (higher level ≤45 heavy atoms)</option><option value="gfn2">quantum</option><option value="mmff">fast (force field)</option></select></label><span class="hint" id="irnote">blue: group-frequency simulation · red sticks: normal modes, click to animate</span><span class="dl"></span></div>
       <div class="body"><div><canvas class="chart nmr" id="c_ir"></canvas></div>
       <div><div class="lbl">normal modes <span id="modelevel"></span></div><div id="vib3d"></div><div class="hint" id="vibnote"></div><div class="hint" id="vibperiod" style="font-size:11px;opacity:.75;margin-bottom:6px"></div><div class="scroll tall"><table id="t_modes"></table></div><details><summary>group-frequency bands</summary><div class="scroll"><table id="t_ir"></table></div></details></div></div></div>
-    <div class="spec"><div class="head"><b>UV–Vis</b><span class="ib" data-m="uv">i</span><span class="hint" id="uvsolv">Woodward–Fieser / Scott rules</span><span class="dl"><button class="small" data-dl="png:c_uv:UV-Vis">⤓ PNG</button><button class="small" data-dl="csv:uv">⤓ CSV</button></span></div>
+    <div class="spec"><div class="head"><b>UV–Vis</b><span class="ib" data-m="uv">i</span><span class="hint" id="uvsolv">Woodward–Fieser / Scott rules</span><span class="dl"></span></div>
       <div class="body"><div><canvas class="chart" id="c_uv" style="height:280px"></canvas></div>
       <div><div class="scroll tall"><table id="t_uv"></table></div><div class="hint" id="uvnote" style="padding:8px 2px"></div></div></div></div>
-    <div class="spec pl"><div class="head"><b>Photoluminescence</b><span class="badge acc plain" id="plclass"></span><span class="ib" data-m="photoluminescence">i</span><span class="hint">absorption ⟷ fluorescence · hover a vibronic peak to see its transition</span><span class="dl"><button class="small" data-dl="png:c_pl:photoluminescence">⤓ PNG</button><button class="small" data-dl="csv:pl">⤓ CSV</button><button class="small" id="dlFC">⤓ FC SVG</button></span></div>
+    <div class="spec pl"><div class="head"><b>Photoluminescence</b><span class="badge acc plain" id="plclass"></span><span class="ib" data-m="photoluminescence">i</span><span class="hint">absorption ⟷ fluorescence · hover a vibronic peak to see its transition</span><span class="dl"></span></div>
       <div class="body"><div>
         <div class="plsummary" id="plsummary"></div>
         <div class="plctl"><label title="check whether a given source wavelength excites this molecule">Excitation λ <input id="lex" type="number" step="1" placeholder="e.g. 365"> nm</label><label title="check the emission intensity at a given detection wavelength">Emission λ <input id="lem" type="number" step="1" placeholder="e.g. 450"> nm</label><button class="small" id="plreset">clear</button><span class="fb" id="plfb"></span></div>

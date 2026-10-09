@@ -13,6 +13,7 @@ Rigor model
 from __future__ import annotations
 import re, json, functools, threading, concurrent.futures
 from dataclasses import dataclass, field, asdict
+import xml.etree.ElementTree as ET
 from typing import Optional
 import requests
 from rdkit import Chem, RDLogger
@@ -102,6 +103,7 @@ class Resolution:
     names: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     online: bool = True
+    substituent: bool = False   # input was a substituent/radical name; structure drawn with attachment points (*)
 
 
 # ----------------------------------------------------------------------------- locant mapping
@@ -397,8 +399,161 @@ def _regions(name: str, mol, locs: list, fid: list, frags: list) -> list:
     return regions
 
 
+def cap_radicals(m: Chem.Mol) -> Chem.Mol:
+    """Replace each unpaired electron with a bond to a dummy atom (*): a substituent with explicit attachment points."""
+    rw = Chem.RWMol(m)
+    for a in list(rw.GetAtoms()):
+        n = a.GetNumRadicalElectrons()
+        if not n:
+            continue
+        for _ in range(n):
+            d = rw.AddAtom(Chem.Atom(0))
+            rw.AddBond(a.GetIdx(), d, Chem.BondType.SINGLE)
+        a.SetNumRadicalElectrons(0)
+    out = rw.GetMol()
+    Chem.SanitizeMol(out)
+    return out
+
+
+def _regions_from_parse(name: str, parse: dict, id2ti: dict, mol, locs: list) -> Optional[list]:
+    """
+    Name regions from OPSIN's own parse tree (core/opsin.name_to_parse).  Brackets are paired
+    into `group` regions (with the locant that precedes the bracket), every `substituent`
+    element becomes a `prefix` (its bracket tokens excluded), the `root` the `parent`, and a
+    root suffix that created atoms of its own a nested `suffix`.  Offsets come from walking the
+    raw tokens in order; a short gap between tokens (the elided 'o' of benz|o|ic acid) folds
+    into the following token.  Returns None when the tree cannot be aligned to `name`, and the
+    caller then falls back to the vocabulary-based _regions().
+    """
+    pre = parse.get("pre") or name
+    if len(pre) != len(name):
+        return None
+    toks = parse["tokens"]
+    by_i = {t["i"]: t for t in toks}
+    children: dict = {}
+    for t in toks:
+        children.setdefault(t["p"], []).append(t["i"])
+    leaves = [t for t in toks if t["v"] is not None]
+    low = pre.lower()
+    cursor, prev_start, span = 0, 0, {}
+    for t in leaves:
+        k = low.find(t["v"].lower(), cursor)
+        if k < 0:                                   # a token may overlap the one before it (bi|biphenyl)
+            k = low.find(t["v"].lower(), prev_start)
+            if k < 0:
+                return None
+        span[t["i"]] = (cursor if 0 < k - cursor <= 2 else k, k + len(t["v"]))
+        prev_start, cursor = k, max(cursor, k + len(t["v"]))
+
+    extra_by_v: dict = {}
+    for ex in parse.get("extras", []):
+        extra_by_v.setdefault(ex["v"], []).extend(ex["atoms"])
+
+    def tok_atoms(t):
+        ids = list(t["atoms"]) + (extra_by_v.get(t["v"], []) if t["el"] == "group" else [])
+        return {id2ti[a] for a in ids if a in id2ti}
+
+    def desc_leaves(i):
+        t = by_i[i]
+        if t["v"] is not None:
+            return [t]
+        out = []
+        for c in children.get(i, []):
+            out += desc_leaves(c)
+        return out
+
+    # brackets: pair them in document order; the locant just before an opening bracket belongs to it
+    order = {t["i"]: n for n, t in enumerate(leaves)}
+    bracket_locants = set()
+    pairs, stack = [], []
+    for n, t in enumerate(leaves):
+        if t["el"] in ("openbracket", "structuralOpenBracket"):
+            stack.append(n)
+        elif t["el"] in ("closebracket", "structuralCloseBracket") and stack:
+            pairs.append((stack.pop(), n))
+    regions = []
+    for o, c in pairs:
+        if leaves[o]["el"] == "structuralOpenBracket":   # ring assemblies ([1,1'-biphenyl]) are part of the parent word
+            continue
+        s0 = span[leaves[o]["i"]][0]
+        if o > 0 and leaves[o - 1]["el"] == "locant":
+            s0 = span[leaves[o - 1]["i"]][0]; bracket_locants.add(leaves[o - 1]["i"])
+        s1 = span[leaves[c]["i"]][1]
+        atoms = set()
+        for t in leaves[o + 1:c]:
+            atoms |= tok_atoms(t)
+        if atoms:
+            regions.append({"start": s0, "end": s1, "atoms": sorted(atoms), "kind": "group", "label": name[s0:s1]})
+
+    skip = {"openbracket", "closebracket", "structuralOpenBracket", "structuralCloseBracket"}
+    for t in toks:
+        if t["v"] is not None or t["el"] not in ("substituent", "root"):
+            continue
+        ls = desc_leaves(t["i"])
+        if t["el"] == "substituent":
+            ls = [l for l in ls if l["el"] not in skip and l["i"] not in bracket_locants]
+            while ls and ls[-1]["el"] == "hyphen":
+                ls.pop()
+            if not ls:
+                continue
+            atoms = set()
+            for l in ls:
+                atoms |= tok_atoms(l)
+            s0, s1 = span[ls[0]["i"]][0], span[ls[-1]["i"]][1]
+            if atoms and s1 > s0:
+                regions.append({"start": s0, "end": s1, "atoms": sorted(atoms), "kind": "prefix", "label": name[s0:s1]})
+            continue
+        # root: the parent word, through to the end of the name (a trailing elided 'e' has no token)
+        atoms = set()
+        for l in ls:
+            atoms |= tok_atoms(l)
+        if not atoms or not ls:
+            continue
+        s0, s1 = span[ls[0]["i"]][0], len(name)
+        regions.append({"start": s0, "end": s1, "atoms": sorted(atoms), "kind": "parent", "label": name[s0:s1]})
+        kids = children.get(t["i"], [])
+        group = next((by_i[c] for c in kids if by_i[c]["el"] == "group"), None)
+        sufs = [by_i[c] for c in kids if by_i[c]["el"] == "suffix"]
+        if not group or not sufs:
+            continue
+        gm = Chem.MolFromSmiles(group["g"]) if group.get("g") else None
+        n_own = gm.GetNumAtoms() if gm is not None else 0
+        gat = sorted(a for a in group["atoms"] if a in id2ti)            # ids ascend in creation order
+        suffix_ids = gat[n_own:] if n_own and len(gat) > n_own else []
+        satoms = {id2ti[a] for a in suffix_ids}
+        if not satoms:
+            # no usable group template: the suffix's atoms are the group atoms OPSIN labelled with a
+            # non-numeric locant (O, N, alpha) rather than a chain/ring number
+            satoms = {id2ti[a] for a in gat if locs[id2ti[a]] and not _NUM_LOC.match(locs[id2ti[a]]) and not _PRIMED_NUM.match(locs[id2ti[a]])}
+        if not satoms:
+            continue
+        suf = sufs[-1]
+        sv = suf["v"].lower()
+        if "C" in (_SUFFIX_ELEMENTS.get(sv) or _SUFFIX_ELEMENTS.get("o" + sv) or set()):
+            # a chain carbon bearing the suffix heteroatoms is part of the group (ethanoic acid: C1); a ring carbon is not
+            satoms |= {nb.GetIdx() for a in list(satoms) for nb in mol.GetAtomWithIdx(a).GetNeighbors()
+                       if nb.GetSymbol() == "C" and not nb.IsInRing() and nb.GetIdx() in atoms}
+        s_start = span[suf["i"]][0]
+        j = kids.index(suf["i"]) - 1
+        while j >= 0 and by_i[kids[j]]["el"] in ("locant", "multiplier", "hyphen") and kids[j] in span:
+            s_start = span[kids[j]][0]; j -= 1
+        lab = name[s_start:s1].lstrip("-")
+        regions.append({"start": s1 - len(lab), "end": s1, "atoms": sorted(satoms), "kind": "suffix", "label": lab})
+    return regions or None
+
+
 def attach_locants(entry: NameEntry, target: Chem.Mol, cml_el) -> None:
-    """Fill entry.locants / fragments / spans from the OPSIN CML for entry.name."""
+    """Fill entry.locants / fragments / spans / regions for entry.name.
+    Prefers OPSIN's parse sidecar (one persistent JVM, its own CML); `cml_el` from the CLI is the fallback."""
+    parse = opsin.name_to_parse(entry.name)
+    if parse and parse.get("cml"):
+        try:
+            root = ET.fromstring(parse["cml"])
+            cml_el = root if root.tag.endswith("molecule") else next(root.iter(opsin._CML_NS + "molecule"))
+        except Exception:
+            parse = None
+    if cml_el is None:
+        return
     om, av, ranks = opsin.cml_to_mol(cml_el)
     if om.GetNumAtoms() != target.GetNumAtoms():
         return
@@ -414,7 +569,14 @@ def attach_locants(entry: NameEntry, target: Chem.Mol, cml_el) -> None:
         locs[ti] = av[oi]; frags[ti] = kind_o[oi]; fid[ti] = fid_o[oi]
     entry.locants, entry.fragments, entry.fragment_ids = locs, frags, fid
     entry.spans = _spans(entry.name, locs, fid, sub_ids)
-    entry.regions = _regions(entry.name, target, locs, fid, frags)
+    entry.regions = None
+    if parse:
+        try:
+            entry.regions = _regions_from_parse(entry.name, parse, {ranks[oi]: ti for oi, ti in enumerate(match)}, target, locs)
+        except Exception:
+            entry.regions = None
+    if not entry.regions:
+        entry.regions = _regions(entry.name, target, locs, fid, frags)
 
 
 # ----------------------------------------------------------------------------- style ranking
@@ -549,7 +711,7 @@ def resolve(text: str, want_pubchem: bool = True) -> Resolution:
     if not raw:
         raise ValueError("empty input")
     warnings: list[str] = []
-    mol = None; kind = ""; smiles_input = None; smiles_opsin = None; pc = None; online = True
+    mol = None; kind = ""; smiles_input = None; smiles_opsin = None; pc = None; online = True; substituent = False
 
     # 1. InChI / InChIKey / CAS
     if looks_like_inchi(raw):
@@ -572,6 +734,16 @@ def resolve(text: str, want_pubchem: bool = True) -> Resolution:
             m = mol_from_smiles(raw)
             if m is not None and (re.search(r"[=#()\[\]@/\\0-9]", raw) or re.fullmatch(r"[A-Za-z]{1,12}", raw) is None or raw.lower() in ("c", "cc", "co", "ccc", "cco", "occo", "cn", "n", "o", "s", "cs")):
                 mol = m; kind = "SMILES"; smiles_input = raw
+        # 3b. substituent name (methyl, phenyl, acetyl): OPSIN with radicals allowed, drawn with attachment points
+        if mol is None:
+            parse = opsin.name_to_parse(raw)
+            if parse and parse.get("smiles"):
+                m = mol_from_smiles(parse["smiles"])
+                if m is not None and any(a.GetNumRadicalElectrons() for a in m.GetAtoms()):
+                    mol = cap_radicals(m); kind = "substituent name (OPSIN, radicals allowed)"; smiles_opsin = parse["smiles"]
+                    substituent = True
+                    warnings.append("Substituent name: OPSIN parsed it as a radical, shown here with attachment points (*). "
+                                    "Spectra and properties are not computed for fragments.")
         # 4. trivial / trade name via PubChem
         if mol is None and want_pubchem:
             pc = pubchem_by_name(raw)
@@ -643,10 +815,10 @@ def resolve(text: str, want_pubchem: bool = True) -> Resolution:
     for e in names:
         verify_name(e, key)
     verified = [e for e in names if e.verified]
-    cml = opsin.names_to_cml([e.name for e in verified]) if verified else {}
+    cml = opsin.names_to_cml([e.name for e in verified]) if verified and not opsin.shim_available() else {}
     for e in verified:
         el = cml.get(" ".join(e.name.split()))
-        if el is None:
+        if el is None and not opsin.shim_available():
             continue
         try:
             attach_locants(e, mol, el)
@@ -684,10 +856,10 @@ def resolve(text: str, want_pubchem: bool = True) -> Resolution:
                     names.insert(0, e)
                 if accepted:
                     e = accepted[0]; iupac = e.name
-                    cml = opsin.names_to_cml([e.name])
-                    if cml.get(" ".join(e.name.split())):
+                    cml = {} if opsin.shim_available() else opsin.names_to_cml([e.name])
+                    if cml.get(" ".join(e.name.split())) or opsin.shim_available():
                         try:
-                            attach_locants(e, mol, cml[" ".join(e.name.split())])
+                            attach_locants(e, mol, cml.get(" ".join(e.name.split())))
                         except Exception:
                             pass
                 if iupac:
@@ -699,12 +871,19 @@ def resolve(text: str, want_pubchem: bool = True) -> Resolution:
         else:
             generated_note = "no verified systematic name available for this structure"
     common = next((e.name for e in names if e.kind == "title"), None)
+    if substituent:
+        # a substituent name has no PubChem record and no systematic name to generate: the input is the name
+        names = [NameEntry(name=raw, kind="input", source="user", verified=True,
+                           note="OPSIN (radicals allowed): substituent; attachment points shown as *")]
+        iupac, common = raw, raw
+        generated_note = "substituent name; attachment points shown as *"
+        warnings = [w for w in warnings if "not found in PubChem" not in w]
     return Resolution(
         input=raw, input_kind=kind, cas=cas, iupac_name=iupac, common_name=common, generated_note=generated_note,
         smiles_canonical=can, smiles_canonical_nostereo=nostereo, smiles_kekule=kekule,
         smiles_input=smiles_input, smiles_opsin=smiles_opsin, smiles_pubchem=smiles_pubchem,
         inchi=inchi, inchikey=key, formula=formula, cid=cid,
-        names=names, warnings=warnings, online=online,
+        names=names, warnings=warnings, online=online, substituent=substituent,
     )
 
 

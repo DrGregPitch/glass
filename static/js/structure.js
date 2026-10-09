@@ -19,7 +19,7 @@ function renderStructure(d) {
 }
 function drawOverlay() {
   if (!DEP) return;
-  const ov = $('#overlay'); const showP = $('#t_parent').checked, showS = $('#t_sub').checked, showH = $('#t_het').checked, showI = $('#t_idx').checked;
+  const ov = $('#overlay'); const showP = $('#t_loc').checked, showS = showP, showH = showP, showI = $('#t_idx').checked;   // one switch shows every locant kind
   let s = '';
   DEP.coords.forEach(([x, y], i) => {
     const loc = SEL && SEL.locants ? SEL.locants[i] : null; const frag = SEL && SEL.fragments ? SEL.fragments[i] : null;
@@ -31,8 +31,8 @@ function drawOverlay() {
   ov.innerHTML = s;
   mirrorStructure(); mirrorH();
   ov.querySelectorAll('.hit').forEach(c => {
-    c.onmouseenter = () => { const i = +c.dataset.i; hoverAtom = i; hoverLoc = SEL && SEL.locants ? SEL.locants[i] : null; hoverInfo(i); renderNameBox(); drawOverlay(); };
-    c.onmouseleave = () => { hoverLoc = null; hoverAtom = -1; renderNameBox(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; };
+    c.onmouseenter = () => { const i = +c.dataset.i; hoverAtom = i; hoverLoc = SEL && SEL.locants ? SEL.locants[i] : null; hoverInfo(i); renderNameBox(); updateHover(); };
+    c.onmouseleave = () => { hoverLoc = null; hoverAtom = -1; renderNameBox(); updateHover(); $('#hoverinfo').textContent = HOVER_HINT; };
   });
 }
 function mirrorStructure() {
@@ -62,7 +62,13 @@ function hoverInfo(i) {
   const loc = SEL && SEL.locants ? SEL.locants[i] : null; const frag = SEL && SEL.fragments ? SEL.fragments[i] : null;
   $('#hoverinfo').textContent = `atom ${i}` + (loc ? ` · locant ${loc} (${frag})` : ' · no locant in this name');
 }
-['t_parent', 't_sub', 't_het', 't_idx'].forEach(id => $('#' + id).onchange = drawOverlay);
+['t_loc', 't_idx'].forEach(id => $('#' + id).onchange = drawOverlay);
+// Hover only flips classes on the circles drawOverlay() already drew: no innerHTML rebuild, no
+// handler re-attachment, and the circle under the pointer is never destroyed mid-hover.
+function updateHover() {
+  $$('#overlay .hit').forEach(c => c.classList.toggle('on', +c.dataset.i === hoverAtom || nameHover.has(+c.dataset.i)));
+  if (typeof mirrorStructure === 'function') mirrorStructure();
+}
 function structureSVG(withNumbers) {
   if (withNumbers === undefined) withNumbers = $('#expnum').checked;
   const [x, y, w, h] = bbox(DEP.coords, 40);

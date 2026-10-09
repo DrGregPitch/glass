@@ -14,22 +14,23 @@ with database names and experimental data, and can be switched off per request.
 
 | Input (any of) | Output |
 |---|---|
-| IUPAC / systematic name (any accepted style: preferred, CAS-inverted, trivial-systematic mixes), trivial or trade name, SMILES (any form), InChI, InChIKey, CAS RN | canonical SMILES (isomeric), canonical non-stereo SMILES, Kekulé SMILES, SMILES as entered / from OPSIN / from PubChem, InChI, StdInChIKey, formula, PubChem CID |
+| IUPAC / systematic name (any accepted style: preferred, CAS-inverted, trivial-systematic mixes), substituent name (methyl, phenyl, acetyl: drawn with attachment points), trivial or trade name, SMILES (any form), InChI, InChIKey, CAS RN | canonical SMILES (isomeric), canonical non-stereo SMILES, Kekulé SMILES, SMILES as entered / from OPSIN / from PubChem, InChI, StdInChIKey, formula, PubChem CID |
 | | every name PubChem knows (IUPAC, title, synonyms), each re-parsed by OPSIN and marked `verified` only if the StdInChIKey is identical |
-| | ACS-1996-style 2D depiction, per-name IUPAC atom numbering (parent / substituent / heteroatom locants toggleable), hover an atom → the locant is highlighted in the name |
+| | ACS-1996-style 2D depiction with the selected name's IUPAC numbering (one switch shows parent, substituent and heteroatom locants). Hover an atom to highlight its locant in the name; hover a word in the name — a substituent, a bracketed group, the parent hydride or a suffix such as *oic acid* — to highlight its atoms; click to pin. The word-to-atom map comes from OPSIN's own parse tree |
 | | 3D geometry (ETKDGv3 + MMFF94s): bond lengths, bond angles, interactive viewer |
 | | formula, molar mass, exact mass, melting/boiling point (Joback), density (Girolami), logP, TPSA, etc., plus PubChem experimental values side-by-side |
 | | ¹H NMR (solvent & MHz adjustable, first-order multiplets), ¹³C{¹H} NMR — **experimental-database prediction** (nmrshiftdb2 HOSE codes, measured held-out ¹³C MAE 2.75 ppm / 1.18 ppm on deep matches; per-peak basis, σ and n shown) with additivity fallback; IR, UV-Vis; zoomable, peak ↔ table ↔ atom linked |
 | | **Solvent** selectable once for all techniques (15 solvents incl. gas phase): NMR exchangeables & reference, IR C=O / X–H shifts and broadening, UV–Vis solvatochromism (E_T(30)), emission Stokes shift (Lippert–Mataga Δf × CT character) |
 | | **Editable structure** (Ketcher) — draw changes and everything re-resolves; exports: SVG/PNG/MOL/CDXML structure (numbering annotations optional), PNG/CSV for every spectrum, SVG Franck–Condon diagram, PNG of the 3D and vibration viewers, Markdown/JSON reports |
 | | **Photoluminescence** (estimate): S₀→S₁ 0-0 energy, emission maximum and colour, Stokes shift, Huang–Rhys factor, vibronic progressions from a displaced-oscillator Franck–Condon model, emissivity class with reasons; interactive Franck–Condon diagram |
-| | **Vibrational normal modes** at the **GFN2-xTB** level (tight-binding via tblite: optimisation, gradient Hessian, dipole-derivative intensities; ≤45 heavy atoms) with MMFF94s fallback — level shown, benchmark vs experiment in the methods modal; animated in 3D with displacement arrows |
+| | **Vibrational normal modes** at the **GFN2-xTB** level (tight-binding via tblite: optimisation, gradient Hessian, dipole-derivative intensities; automatic up to 25 heavy atoms, selectable up to 45) with MMFF94s fallback — level shown, benchmark vs experiment in the methods modal; animated in 3D with displacement arrows |
 
 ## Using it
 
 * **Single mode** — type anything; ⌘K / Ctrl-K focuses the search box. Sections: Identity → Names →
-  Structure → Properties → Spectra (sticky navigation). *Export ▾* copies a Markdown report, downloads
-  JSON, the numbered structure as SVG, or prints to PDF.
+  Structure → Properties → Spectra (sticky navigation). One *⤓ Export* menu in the Structure section
+  holds every download: structure (SVG, PNG, CDXML, MOL, 3D PNG, geometry CSV) and each spectrum
+  (PNG, CSV), plus the vibration and Franck–Condon images.
 * **Check an identifier** (Names panel) — paste a name from a label, a SMILES from a supplier or an
   InChI from a paper: verdicts are *same compound* / *same skeleton, different stereo* /
   *different compound* / *not interpreted* (nothing is judged unless it was actually parsed).
@@ -51,7 +52,7 @@ with database names and experimental data, and can be switched off per request.
   PubChem and each candidate is **round-tripped through OPSIN**, accepted as `verified` only if the full
   27-character Standard InChIKey matches. Mismatches are shown with a red badge.
 * All SMILES variants are regenerated from one RDKit molecule, so they are mutually consistent.
-* Atom numbering comes from OPSIN's own locant assignment, correct by construction for the parent hydride.
+* Atom numbering comes from OPSIN's own locant assignment, correct by construction for the parent hydride. The mapping from words of the name to atoms comes from OPSIN's parse tree as well (`vendor/opsin-shim`), with a vocabulary-based fallback when the sidecar is unavailable.
 * Property / spectrum predictions are **estimates** with stated typical errors (Joback ±25–50 K for Tm;
   ¹H ±0.3 ppm; ¹³C ±3–5 ppm; IR ±20 cm⁻¹; UV ±5–10 nm). Use them for sanity checks and assignment support,
   not as data.
