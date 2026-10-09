@@ -166,7 +166,8 @@ def _region_symbols(name):
         ("group", "4-(2-oxopropyl)"): ["C", "C", "C", "O"],
         ("prefix", "2-oxo"): ["O"],
         ("prefix", "2-methyl"): ["C"],
-        ("parent", "benzoic acid"): ["C"] * 7 + ["O", "O"]}),
+        ("parent", "benzoic acid"): ["C"] * 7 + ["O", "O"],
+        ("suffix", "oic acid"): ["C", "O", "O"]}),
     ("9,10-dimethylanthracene", {
         ("prefix", "9,10-dimethyl"): ["C", "C"],
         ("parent", "anthracene"): ["C"] * 14}),
@@ -175,15 +176,39 @@ def _region_symbols(name):
         ("group", "4-(2-methylpropyl)"): ["C"] * 4,
         ("group", "2-[4-(2-methylpropyl)phenyl]"): ["C"] * 10,
         ("prefix", "2-methyl"): ["C"],
-        ("parent", "propanoic acid"): ["C", "C", "C", "O", "O"]}),
+        ("parent", "propanoic acid"): ["C", "C", "C", "O", "O"],
+        ("suffix", "oic acid"): ["C", "O", "O"]}),
     ("4-chloro-N,N-dimethylaniline", {
         ("prefix", "4-chloro"): ["Cl"],
         ("prefix", "N,N-dimethyl"): ["C", "C"],
         ("parent", "aniline"): ["C"] * 6 + ["N"]}),
     ("2,2,2-trifluoroethanol", {
         ("prefix", "2,2,2-trifluoro"): ["F", "F", "F"],
-        ("parent", "ethanol"): ["C", "C", "O"]}),
+        ("parent", "ethanol"): ["C", "C", "O"],
+        ("suffix", "ol"): ["O"]}),
+    # characteristic-group suffixes
+    ("2-methylbutan-2-ol", {
+        ("prefix", "2-methyl"): ["C"],
+        ("parent", "butan-2-ol"): ["C"] * 4 + ["O"],
+        ("suffix", "2-ol"): ["O"]}),                    # geminal methyl and hydroxyl at C2, told apart by element
+    ("hexane-2,4-dione", {
+        ("parent", "hexane-2,4-dione"): ["C"] * 6 + ["O", "O"],
+        ("suffix", "2,4-dione"): ["O", "O"]}),
+    ("acetic acid", {
+        ("parent", "acetic acid"): ["C", "C", "O", "O"],
+        ("suffix", "ic acid"): ["C", "O", "O"]}),       # on a chain the suffix carbon is C1 itself
+    ("butanamide", {
+        ("parent", "butanamide"): ["C"] * 4 + ["N", "O"],
+        ("suffix", "amide"): ["C", "N", "O"]}),
+    ("2-chlorobenzoic acid", {
+        ("prefix", "2-chloro"): ["Cl"],
+        ("parent", "benzoic acid"): ["C"] * 7 + ["O", "O"],
+        ("suffix", "oic acid"): ["C", "O", "O"]}),
     ("methylbenzene", {("parent", "benzene"): ["C"] * 6}),   # unlocanted prefix: no region, parent still exact
+    ("2-Methyl-2-butanol", {                                 # PubChem title: capitalised, CAS-style locant before the hydride
+        ("prefix", "2-Methyl"): ["C"],
+        ("parent", "2-butanol"): ["C"] * 4 + ["O"],
+        ("suffix", "ol"): ["O"]}),
 ])
 def test_name_regions_map_words_to_atoms(name, expected):
     _, got = _region_symbols(name)
@@ -201,7 +226,21 @@ def test_name_regions_are_consistent(name):
         assert g["atoms"], f"empty region {g}"
         if g["kind"] == "prefix" and g["end"] <= parent["start"]:
             assert not set(g["atoms"]) & set(parent["atoms"]), "a depth-0 prefix must not share atoms with the parent"
+        if g["kind"] == "suffix":
+            assert parent["start"] <= g["start"] and g["end"] == parent["end"], "a suffix is the tail of the parent word"
+            assert set(g["atoms"]) <= set(parent["atoms"]), "suffix atoms belong to the parent"
         if g["kind"] == "group":
             for h in e.regions:
                 if h["kind"] == "prefix" and g["start"] <= h["start"] and h["end"] <= g["end"]:
                     assert set(h["atoms"]) <= set(g["atoms"]), "a group must contain its own prefixes"
+
+
+def test_repeated_substituent_with_primed_locant_is_a_substituent():
+    """OPSIN numbers the second methyl of 9,10-dimethylanthracene 1'; it must be labelled sub, not hetero."""
+    from rdkit import Chem
+    r = N.resolve("9,10-dimethylanthracene", want_pubchem=False)
+    e = next(e for e in r.names if e.locants)
+    m = Chem.MolFromSmiles(r.smiles_canonical)
+    methyls = [i for i, a in enumerate(m.GetAtoms()) if a.GetSymbol() == "C" and not a.IsInRing()]
+    assert len(methyls) == 2 and all(e.fragments[i] == "sub" for i in methyls), [(i, e.locants[i], e.fragments[i]) for i in methyls]
+    assert sum(1 for f in e.fragments if f == "parent") == 14

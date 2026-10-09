@@ -106,6 +106,7 @@ class Resolution:
 
 # ----------------------------------------------------------------------------- locant mapping
 _NUM_LOC = re.compile(r"^\d+[a-z]{0,2}$")   # 1, 2, 4a, 8b ...
+_PRIMED_NUM = re.compile(r"^\d+[a-z]{0,2}['\u2032]+$")   # 1', 4'' : a numbered atom of a repeated substituent
 
 
 def _grow(mol, seed, numbered, locants):
@@ -170,6 +171,9 @@ def _assign_fragments(mol: Chem.Mol, locants: list, ranks: list, n_groups=None):
             fid[i] = k
     for i in range(n):
         if kind[i] is None and locants[i]:
+            if mol.GetAtomWithIdx(i).GetSymbol() == "C" and _PRIMED_NUM.match(locants[i]):
+                kind[i] = "sub"; fid[i] = -2       # second methyl of a dimethyl: numbered 1', not a heteroatom
+                continue
             kind[i] = "hetero"
             nb = [x.GetIdx() for x in mol.GetAtomWithIdx(i).GetNeighbors() if fid[x.GetIdx()] >= 0]
             fid[i] = min((fid[j] for j in nb), default=0)
@@ -244,10 +248,20 @@ _CARBON_PREFIXES = [
     "acetyl", "formyl", "benzoyl", "carboxy", "carbamoyl", "methoxycarbonyl", "ethoxycarbonyl",
 ]
 _STEMS = sorted(list(_PREFIX_ELEMENTS) + _CARBON_PREFIXES, key=len, reverse=True)
+# Characteristic-group suffixes we can place: element sets select the group's atoms among the
+# parent's heteroatom-labelled atoms (those OPSIN gives O, O', N, alpha ... rather than a number).
+_SUFFIX_ELEMENTS = {
+    "carboxylic acid": {"C", "O"}, "carbothioic acid": {"C", "O", "S"}, "sulfonic acid": {"S", "O"},
+    "carbaldehyde": {"C", "O"}, "carboxamide": {"C", "N", "O"}, "carbonitrile": {"C", "N"},
+    "oic acid": {"C", "O"}, "ic acid": {"C", "O"}, "aldehyde": {"C", "O"}, "nitrile": {"C", "N"},
+    "amide": {"C", "N", "O"}, "amine": {"N"}, "thiol": {"S"}, "one": {"O"}, "ol": {"O"}, "al": {"C", "O"},
+}
 _MULT = r"(?:tetrakis|pentakis|hexakis|tris|bis|tetra|penta|hexa|hepta|octa|tri|di)?"
 _ONE_LOC = r"(?!tert|sec|iso|neo|cis|trans)(?:[0-9]+[a-z]{0,2}|[A-Z]|[a-z]{3,7})['\u2032]*"
-_BRACKET_LOC_RE = re.compile(r"(?:" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-(?= )")
-_PREFIX_RE = re.compile(r"(?:(" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-)?(" + _MULT + r")(" + "|".join(map(re.escape, _STEMS)) + r")-?")
+_BRACKET_LOC_RE = re.compile(r"(?:" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-(?= )", re.IGNORECASE)
+_PREFIX_RE = re.compile(r"(?:(" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-)?(" + _MULT + r")(" + "|".join(map(re.escape, _STEMS)) + r")-?", re.IGNORECASE)   # PubChem titles capitalise: 2-Methyl-
+_SUFFIX_RE = re.compile(r"(?:-?(" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-)?(" + _MULT + r")("
+                        + "|".join(map(re.escape, sorted(_SUFFIX_ELEMENTS, key=len, reverse=True))) + r")$", re.IGNORECASE)
 
 
 def _blank_nested(text: str) -> str:
@@ -319,13 +333,13 @@ def _regions(name: str, mol, locs: list, fid: list, frags: list) -> list:
             m = _PREFIX_RE.match(seg, pos)
             if not m:
                 break
-            loc_run, _mult, stem = m.group(1), m.group(2), m.group(3)
+            loc_run, _mult, stem = m.group(1), m.group(2), m.group(3).lower()
             atoms = set()
             if loc_run:
                 for L in loc_run.replace("\u2032", "'").split(","):
                     for a in range(n):
                         if fid[a] == k and locs[a] == L:
-                            atoms |= _attached_group(mol, a, k, fid, frags, _PREFIX_ELEMENTS.get(stem))
+                            atoms |= _attached_group(mol, a, k, fid, frags, _PREFIX_ELEMENTS.get(stem, {"C"}))
             if atoms:
                 regions.append({"start": text_start + m.start(), "end": text_start + m.end() - (1 if m.group(0).endswith("-") else 0),
                                 "atoms": sorted(atoms), "kind": "prefix", "label": name[text_start + m.start():text_start + m.end()].rstrip("-")})
@@ -344,6 +358,30 @@ def _regions(name: str, mol, locs: list, fid: list, frags: list) -> list:
     parent_atoms = sorted(i for i in range(n) if fid[i] == 0 and i not in claimed)
     if parent_atoms and start < len(name):
         regions.append({"start": start, "end": len(name), "atoms": parent_atoms, "kind": "parent", "label": name[start:]})
+        # the characteristic-group suffix, as a region nested inside the parent word
+        ms = _SUFFIX_RE.search(name, start)
+        if ms:
+            loc_run, _mult, suffix = ms.group(1), ms.group(2), ms.group(3).lower()
+            elements = _SUFFIX_ELEMENTS[suffix]
+            hetero0 = {i for i in range(n) if fid[i] == 0 and frags[i] == "hetero" and i not in claimed
+                       and mol.GetAtomWithIdx(i).GetSymbol() in elements}
+            if loc_run:
+                atoms = set()
+                for L in loc_run.replace("\u2032", "'").split(","):
+                    for a in range(n):
+                        if fid[a] == 0 and locs[a] == L and frags[a] != "hetero":
+                            atoms |= _attached_group(mol, a, 0, fid, frags, elements) & hetero0
+                            # grow through the group's other heteroatoms (the two O of a carboxyl)
+                            atoms |= {j for j in hetero0 if any(nb.GetIdx() in atoms for nb in mol.GetAtomWithIdx(j).GetNeighbors())}
+            else:
+                atoms = hetero0
+            if atoms and "C" in elements:
+                # on a chain the suffix carbon is a numbered atom (ethanoic acid: C1); include it, but not a ring carbon
+                atoms |= {nb.GetIdx() for i in list(atoms) for nb in mol.GetAtomWithIdx(i).GetNeighbors()
+                          if fid[nb.GetIdx()] == 0 and frags[nb.GetIdx()] == "parent" and nb.GetSymbol() == "C" and not nb.IsInRing()}
+            if atoms:
+                s0 = ms.start() + (1 if name[ms.start()] == "-" else 0)
+                regions.append({"start": s0, "end": len(name), "atoms": sorted(atoms), "kind": "suffix", "label": name[s0:]})
     # a bracketed group is the whole substituent: fold in its nested prefixes and take its own locants
     for g in regions:
         if g["kind"] != "group":
