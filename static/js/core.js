@@ -3,7 +3,7 @@
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let SOLVS = [], METHODS = {}, R = null, DEP = null, DEPH = null, SEL = null, hoverLoc = null, hoverAtom = -1, nameHover = new Set(), PROPS = null, SPEC = null, GEOM = null;
+let SOLVS = [], METHODS = {}, R = null, DEP = null, DEPH = null, SEL = null, hoverLoc = null, hoverAtom = -1, nameHover = new Set(), namePinned = null, PROPS = null, SPEC = null, GEOM = null;
 const EXAMPLES = ['anthracene', 'azulene', 'trans-stilbene', 'indigo', 'pyrene', 'coumarin', 'pentacene', 'thiophene'];
 
 async function api(path, params, body) {
@@ -159,7 +159,7 @@ function selectName(i) {
   if (SPEC) renderSpectraTables();
   if (typeof renderGeomTables === 'function') renderGeomTables();
 }
-const HOVER_HINT = 'Hover an atom to highlight its locant in the name, or a word in the name to highlight its atoms.';
+const HOVER_HINT = 'Hover an atom to highlight its locant in the name, or a word in the name to highlight its atoms; click a word to pin it.';
 function renderNameBox() {
   const box = $('#namebox');
   if (!SEL) { box.innerHTML = '<span class="hint">no name selected</span>'; return; }
@@ -186,12 +186,17 @@ function renderNameBox() {
   box.innerHTML = out + (hasNum(SEL) ? '' : ' <span class="hint">(no locants: not a systematic name)</span>');
   const apply = el => {
     const g = regions[+el.dataset.k]; nameHover = new Set(g.atoms); drawOverlay();
-    const what = g.kind === 'parent' ? 'parent hydride' : g.kind === 'group' ? 'substituent group' : 'substituent';
+    const what = { parent: 'parent hydride', group: 'substituent group', prefix: 'substituent', suffix: 'characteristic group' }[g.kind] || g.kind;
     $('#hoverinfo').textContent = `${what} "${g.label}" \u00b7 ${g.atoms.length} atom${g.atoms.length === 1 ? '' : 's'}`;
   };
+  // a pinned word keeps its atoms lit after the pointer leaves; clicking it again unpins
+  const pinnedEl = namePinned && namePinned.name === name ? $(`#namebox .nm[data-k="${namePinned.k}"]`) : null;
+  if (pinnedEl) pinnedEl.classList.add('pinned'); else namePinned = null;
+  const rest = () => { if (pinnedEl) apply(pinnedEl); else { nameHover = new Set(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; } };
   $$('#namebox .nm').forEach(el => {
     el.onmouseenter = () => apply(el);
-    el.onmouseleave = () => { const outer = el.parentElement && el.parentElement.closest('.nm'); if (outer) apply(outer); else { nameHover = new Set(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; } };
+    el.onmouseleave = () => { const outer = el.parentElement && el.parentElement.closest('.nm'); if (outer) apply(outer); else rest(); };
+    el.onclick = ev => { ev.stopPropagation(); const k = +el.dataset.k; namePinned = (namePinned && namePinned.name === name && namePinned.k === k) ? null : { name, k }; renderNameBox(); const p = namePinned && $(`#namebox .nm[data-k="${k}"]`); if (p) apply(p); else { nameHover = new Set(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; } };
   });
 }
 
