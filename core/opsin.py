@@ -186,6 +186,95 @@ def names_to_cml(names: list[str]) -> dict[str, ET.Element]:
     return out
 
 
+# ----------------------------------------------------------------------------- parse-tree sidecar
+# vendor/opsin-shim/GlassOpsin.class runs OPSIN's own pipeline and reports the token tree with the
+# atom ids each token created (see the Java source).  Optional: when the class is missing or the
+# JVM fails, callers fall back to the CLI workers above.
+_SHIM_DIR = os.path.join(_ROOT, "vendor", "opsin-shim")
+_SHIM_CLASS = "uk.ac.cam.ch.wwmm.opsin.GlassOpsin"
+
+
+class _ShimWorker:
+    """One persistent `java -cp opsin.jar:shim GlassOpsin` process; JSON object per line."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.proc: Optional[subprocess.Popen] = None
+        self.broken = False
+
+    def available(self) -> bool:
+        cls = os.path.join(_SHIM_DIR, *_SHIM_CLASS.split(".")) + ".class"
+        return not self.broken and os.path.exists(JAR) and os.path.exists(cls)
+
+    def _start(self):
+        self.proc = subprocess.Popen(
+            [JAVA, "-Xss4m", "-cp", JAR + os.pathsep + _SHIM_DIR, _SHIM_CLASS],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1,
+        )
+        import select
+        r, _, _ = select.select([self.proc.stdout], [], [], 30.0)
+        first = self.proc.stdout.readline() if r else ""
+        if '"ready"' not in first:
+            try:
+                self.proc.kill()
+            except Exception:
+                pass
+            self.proc = None
+            self.broken = True
+            raise OpsinError("OPSIN parse sidecar did not start")
+
+    def query(self, name: str) -> Optional[dict]:
+        import json, select
+        name = " ".join(name.split())
+        if not name or not self.available():
+            return None
+        with self.lock:
+            try:
+                if self.proc is None or self.proc.poll() is not None:
+                    self._start()
+                self.proc.stdin.write(name + "\n")
+                self.proc.stdin.flush()
+                r, _, _ = select.select([self.proc.stdout], [], [], 20.0)
+                if not r:
+                    raise TimeoutError
+                line = self.proc.stdout.readline()
+            except (TimeoutError, BrokenPipeError, OSError, OpsinError):
+                try:
+                    if self.proc:
+                        self.proc.kill()
+                except Exception:
+                    pass
+                self.proc = None
+                return None
+        try:
+            d = json.loads(line)
+        except ValueError:
+            return None
+        return d if "tokens" in d else None
+
+
+_shim = _ShimWorker()
+
+
+def shim_available() -> bool:
+    return _shim.available()
+
+
+def name_to_parse(name: str) -> Optional[dict]:
+    """OPSIN parse tree for a name: {name, pre, smiles, cml, tokens[{i,p,el,v,g,atoms}], extras}, or None.
+    Radicals are allowed, so substituent names (methyl, phenyl) parse to radical SMILES."""
+    return _shim.query(name)
+
+
+def names_to_parse(names: list[str]) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for n in names:
+        d = name_to_parse(n)
+        if d:
+            out[" ".join(n.split())] = d
+    return out
+
+
 def cml_to_mol(mol_el: ET.Element):
     """
     Build an RDKit molecule from an OPSIN CML <molecule>.  Returns

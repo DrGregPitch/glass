@@ -70,7 +70,7 @@ const LEVEL_HINTS = {
   giao: 'NMR: quantum calculation, empirically scaled. Real physics, no database: works for novel environments; per-peak uncertainty shown; ≤16 heavy atoms, no Br/I; takes seconds to ~a minute.',
   hose: 'NMR: nearest experimental environment from a reference database. Best whenever the environment exists in the database; each peak shows its match quality and spread.',
   increments: 'NMR: additivity increments only (¹³C ±3–5 ppm, ¹H ±0.3 ppm). Useful for novel environments and to see the textbook estimate; no database dependence.',
-  auto: 'Vibrations: GFN2-xTB when the molecule has ≤45 heavy atoms, otherwise MMFF94s.',
+  auto: 'Vibrations: GFN2-xTB when the molecule has ≤25 heavy atoms, otherwise MMFF94s (GFN2-xTB is selectable up to 45; slow).',
   gfn2: 'Vibrations: GFN2-xTB. Real electronic structure (charges respond to motion → realistic intensities); best for carbonyl, ring and CH bending modes (±25–35 cm⁻¹); systematically low for O–H and off for C≡N and C–Cl.',
   mmff: 'Vibrations: MMFF94s force field. Fast; parametrised X–H and nitrile stretches can be closer to experiment than GFN2, but intensities are only qualitative and conjugated C=C/C=O can be 30–80 cm⁻¹ off.',
 };
@@ -89,7 +89,7 @@ function drawIR() {
 }
 async function loadModes() {
   MODES = null; MODESEL = -1; stopVib(); $('#vib3d').style.display = 'none'; $('#vibnote').textContent = ''; $('#vibperiod').textContent = '';
-  $('#t_modes').innerHTML = '<tr><td class="hint"><span class="spin"></span> computing normal modes (GFN2-xTB, a few seconds)…</td></tr>'; $('#modelevel').innerHTML = '';
+  $('#t_modes').innerHTML = '<tr><td class="hint"><span class="spin"></span> computing normal modes (GFN2-xTB up to 25 heavy atoms, MMFF94s above)…</td></tr>'; $('#modelevel').innerHTML = '';
   try { MODES = await api('/api/modes', { smiles: R.smiles_canonical, level: $('#viblevel').value }); } catch (e) { $('#t_modes').innerHTML = `<tr><td class="hint">${esc(e.message)}</td></tr>`; return; }
   if (MODES.error) { $('#t_modes').innerHTML = `<tr><td class="hint">${esc(MODES.error)}</td></tr>`; return; }
   $('#modelevel').innerHTML = `<span class="badge ${MODES.level === 'GFN2-xTB' ? 'ok' : 'warn'} plain">${esc(MODES.level || 'MMFF94s')}</span>${MODES.fallback_reason ? ` <span class="hint">${esc(MODES.fallback_reason)}</span>` : ''}`;

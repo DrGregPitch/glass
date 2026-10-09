@@ -211,9 +211,15 @@ def _normal_modes_gfn2_inner(mol, max_atoms, seed, step):
             "note": f"Frequencies scaled by {GFN2_SCALE}. Typical error ±25–35 cm⁻¹ vs experiment; intensities semi-quantitative{note_conv}."}
 
 
+GFN2_AUTO_MAX = 25   # heavy atoms: a GFN2-xTB Hessian beyond this takes minutes on a small server
+
+
 def normal_modes_best(mol: Chem.Mol) -> dict:
-    """GFN2-xTB when available and affordable, otherwise MMFF94s; the result says which."""
-    r = normal_modes_gfn2(mol)
+    """GFN2-xTB when available and affordable (<= GFN2_AUTO_MAX heavy atoms), otherwise MMFF94s; the result says which.
+    The gfn2 level can still be chosen explicitly up to the hard cap."""
+    r = normal_modes_gfn2(mol, max_atoms=GFN2_AUTO_MAX)
+    if "error" in r and mol.GetNumAtoms() > GFN2_AUTO_MAX:
+        r["error"] = f"GFN2-xTB is used automatically up to {GFN2_AUTO_MAX} heavy atoms; choose the GFN2-xTB level explicitly for larger molecules (slow)"
     if "modes" in r:
         return r
     m = normal_modes(mol)

@@ -46,6 +46,12 @@ def api_resolve(q: str = Query(..., min_length=1, max_length=10_000), pubchem: b
     return N.resolution_to_dict(r)
 
 
+def _reject_fragment(smiles: str) -> None:
+    """Substituent inputs carry attachment points (*); spectra and properties are meaningless for them."""
+    if "*" in smiles:
+        raise HTTPException(400, "substituent fragment (attachment point *): spectra and properties are not computed")
+
+
 @functools.lru_cache(maxsize=512)
 def _structure(smiles: str, three_d: bool):
     m = _mol(smiles)
@@ -62,6 +68,7 @@ def api_structure(smiles: str, three_d: bool = True):
 
 @functools.lru_cache(maxsize=512)
 def _props(smiles: str):
+    _reject_fragment(smiles)
     return P.predict(_mol(smiles), smiles)
 
 
@@ -72,6 +79,7 @@ def api_properties(smiles: str):
 
 @functools.lru_cache(maxsize=1024)
 def _spectra(smiles: str, solvent: str, mhz: float, nmr_level: str = "hose"):
+    _reject_fragment(smiles)
     return X.all_spectra(_mol(smiles), solvent, mhz, nmr_level)
 
 
@@ -89,6 +97,7 @@ def api_spectra(smiles: str, solvent: str = "chloroform", mhz: float = 400.0, nm
 
 @functools.lru_cache(maxsize=256)
 def _modes(smiles: str, level: str = "auto"):
+    _reject_fragment(smiles)
     m = _mol(smiles)
     if level == "mmff":
         r = V.normal_modes(m); r["level"] = "MMFF94s"; return r
@@ -99,7 +108,7 @@ def _modes(smiles: str, level: str = "auto"):
 
 @app.get("/api/modes")
 def api_modes(smiles: str, level: str = "auto"):
-    """level: auto (GFN2-xTB when ≤45 heavy atoms, else MMFF94s) | gfn2 | mmff"""
+    """level: auto (GFN2-xTB when ≤25 heavy atoms, else MMFF94s) | gfn2 (up to 45, slow for large molecules) | mmff"""
     if level not in ("auto", "gfn2", "mmff"):
         raise HTTPException(400, "level must be auto, gfn2 or mmff")
     return _modes(smiles, level)
@@ -137,6 +146,7 @@ def api_validation():
 
 @functools.lru_cache(maxsize=512)
 def _photo(smiles: str, solvent: str, level: str = "auto"):
+    _reject_fragment(smiles)
     m = _mol(smiles)
     modes = _modes(smiles, level) if m.GetNumAtoms() <= 60 else None
     return PH.photoluminescence(m, modes if modes and not modes.get("error") else None, solvent)
@@ -204,6 +214,7 @@ def api_elements():
 
 @functools.lru_cache(maxsize=256)
 def _electronic(smiles: str):
+    _reject_fragment(smiles)
     from core import electronic as EL
     return EL.electronic_structure(_mol(smiles))
 
@@ -216,6 +227,7 @@ def api_electronic(smiles: str):
 
 @functools.lru_cache(maxsize=96)
 def _orbital(smiles: str, which: str, offset: int = 0):
+    _reject_fragment(smiles)
     from core import orbitals as ORB
     return ORB.orbital_cube(_mol(smiles), which, offset)
 
