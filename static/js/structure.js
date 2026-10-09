@@ -23,7 +23,7 @@ function drawOverlay() {
   let s = '';
   DEP.coords.forEach(([x, y], i) => {
     const loc = SEL && SEL.locants ? SEL.locants[i] : null; const frag = SEL && SEL.fragments ? SEL.fragments[i] : null;
-    s += `<circle class="hit${i === hoverAtom ? ' on' : ''}" cx="${x}" cy="${y}" r="11" data-i="${i}"></circle>`;
+    s += `<circle class="hit${(i === hoverAtom || nameHover.has(i)) ? ' on' : ''}" cx="${x}" cy="${y}" r="11" data-i="${i}"></circle>`;
     const [dx, dy] = DEP.dirs[i]; const lx = x + dx * 14, ly = y + dy * 14 + 4;
     if (loc && ((frag === 'parent' && showP) || (frag === 'sub' && showS) || (frag === 'hetero' && showH))) s += `<text class="loc ${frag}" x="${lx}" y="${ly}" text-anchor="middle">${esc(frag === 'sub' ? loc + '′' : loc)}</text>`;
     if (showI) s += `<text class="loc idx" x="${x - dx * 13}" y="${y - dy * 13 + 3}" text-anchor="middle">${i}</text>`;
@@ -32,7 +32,7 @@ function drawOverlay() {
   mirrorStructure(); mirrorH();
   ov.querySelectorAll('.hit').forEach(c => {
     c.onmouseenter = () => { const i = +c.dataset.i; hoverAtom = i; hoverLoc = SEL && SEL.locants ? SEL.locants[i] : null; hoverInfo(i); renderNameBox(); drawOverlay(); };
-    c.onmouseleave = () => { hoverLoc = null; hoverAtom = -1; renderNameBox(); drawOverlay(); $('#hoverinfo').textContent = 'Hover an atom to highlight its locant in the name.'; };
+    c.onmouseleave = () => { hoverLoc = null; hoverAtom = -1; renderNameBox(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; };
   });
 }
 function mirrorStructure() {

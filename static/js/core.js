@@ -3,7 +3,7 @@
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let SOLVS = [], METHODS = {}, R = null, DEP = null, DEPH = null, SEL = null, hoverLoc = null, hoverAtom = -1, PROPS = null, SPEC = null, GEOM = null;
+let SOLVS = [], METHODS = {}, R = null, DEP = null, DEPH = null, SEL = null, hoverLoc = null, hoverAtom = -1, nameHover = new Set(), PROPS = null, SPEC = null, GEOM = null;
 const EXAMPLES = ['anthracene', 'azulene', 'trans-stilbene', 'indigo', 'pyrene', 'coumarin', 'pentacene', 'thiophene'];
 
 async function api(path, params, body) {
@@ -159,14 +159,40 @@ function selectName(i) {
   if (SPEC) renderSpectraTables();
   if (typeof renderGeomTables === 'function') renderGeomTables();
 }
+const HOVER_HINT = 'Hover an atom to highlight its locant in the name, or a word in the name to highlight its atoms.';
 function renderNameBox() {
   const box = $('#namebox');
   if (!SEL) { box.innerHTML = '<span class="hint">no name selected</span>'; return; }
-  const name = SEL.name; const spans = (SEL.spans && hoverAtom >= 0 && SEL.spans[String(hoverAtom)]) || [];
-  let out = '', pos = 0;
-  for (const [s, e] of spans.sort((a, b) => a[0] - b[0])) { out += esc(name.slice(pos, s)) + '<mark>' + esc(name.slice(s, e)) + '</mark>'; pos = e; }
-  out += esc(name.slice(pos));
+  const name = SEL.name, regions = SEL.regions || [];
+  // Ranges to wrap: every name region as a hoverable span, plus <mark> on the hovered atom's own
+  // locant token.  An atom whose locant is not written in the name (retained names, ring fusion
+  // atoms) instead marks the smallest word that contains it.
+  const ranges = regions.map((g, k) => ({ s: g.start, e: g.end, tag: 'nm', k, kind: g.kind }));
+  const spans = (SEL.spans && hoverAtom >= 0 && SEL.spans[String(hoverAtom)]) || [];
+  spans.forEach(([s, e]) => ranges.push({ s, e, tag: 'mark' }));
+  if (hoverAtom >= 0 && !spans.length) {
+    const own = regions.filter(g => g.atoms.includes(hoverAtom)).sort((a, b) => (a.end - a.start) - (b.end - b.start))[0];
+    if (own) ranges.push({ s: own.start, e: own.end, tag: 'mark' });
+  }
+  // emit tags by position; properly nested ranges open outermost-first and close innermost-first
+  const opens = {}, closes = {};
+  ranges.forEach((r, i) => { r.i = i; (opens[r.s] = opens[r.s] || []).push(r); (closes[r.e] = closes[r.e] || []).push(r); });
+  let out = '';
+  for (let p = 0; p <= name.length; p++) {
+    (closes[p] || []).sort((a, b) => b.s - a.s || a.e - b.e || b.i - a.i).forEach(r => { out += r.tag === 'mark' ? '</mark>' : '</span>'; });
+    (opens[p] || []).sort((a, b) => b.e - a.e || a.s - b.s || a.i - b.i).forEach(r => { out += r.tag === 'mark' ? '<mark>' : `<span class="nm ${r.kind}" data-k="${r.k}">`; });
+    if (p < name.length) out += esc(name[p]);
+  }
   box.innerHTML = out + (hasNum(SEL) ? '' : ' <span class="hint">(no locants: not a systematic name)</span>');
+  const apply = el => {
+    const g = regions[+el.dataset.k]; nameHover = new Set(g.atoms); drawOverlay();
+    const what = g.kind === 'parent' ? 'parent hydride' : g.kind === 'group' ? 'substituent group' : 'substituent';
+    $('#hoverinfo').textContent = `${what} "${g.label}" \u00b7 ${g.atoms.length} atom${g.atoms.length === 1 ? '' : 's'}`;
+  };
+  $$('#namebox .nm').forEach(el => {
+    el.onmouseenter = () => apply(el);
+    el.onmouseleave = () => { const outer = el.parentElement && el.parentElement.closest('.nm'); if (outer) apply(outer); else { nameHover = new Set(); drawOverlay(); $('#hoverinfo').textContent = HOVER_HINT; } };
+  });
 }
 
 // ---------------- pane rail: one working pane at a time (structure default)

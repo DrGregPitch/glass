@@ -78,6 +78,7 @@ class NameEntry:
     fragments: Optional[list] = None    # per atom: 'parent' | 'sub' | None
     spans: Optional[dict] = None        # atom index (str) -> [[start,end],...] char spans of ITS locant in the name
     fragment_ids: Optional[list] = None # per atom: 0 = parent hydride, 1.. = substituent groups in name order
+    regions: Optional[list] = None      # name char ranges -> atoms: [{start,end,atoms,kind,label}], kind parent|group|prefix
 
 
 @dataclass
@@ -225,6 +226,139 @@ def _spans(name: str, locs: list, fid: list, sub_ids: list) -> dict:
     return out
 
 
+# ----------------------------------------------------------------------------- name regions
+# Unbracketed substituent prefixes we can place on the structure.  Matching is by the prefix's
+# own locant(s), so an unrecognised or unlocanted prefix simply yields no region -- it never
+# highlights the wrong atoms.  Element sets disambiguate geminal substituents at one locant.
+_PREFIX_ELEMENTS = {
+    "fluoro": {"F"}, "chloro": {"Cl"}, "bromo": {"Br"}, "iodo": {"I"},
+    "oxo": {"O"}, "hydroxy": {"O"}, "methoxy": {"O"}, "ethoxy": {"O"}, "phenoxy": {"O"}, "acetoxy": {"O"},
+    "amino": {"N"}, "nitro": {"N"}, "cyano": {"C"}, "azido": {"N"}, "nitroso": {"N"},
+    "sulfanyl": {"S"}, "mercapto": {"S"}, "methylsulfanyl": {"S"}, "methylthio": {"S"},
+    "sulfo": {"S"}, "methylsulfonyl": {"S"}, "phosphono": {"P"},
+}
+_CARBON_PREFIXES = [
+    "trifluoromethyl", "cyclopropyl", "cyclobutyl", "cyclopentyl", "cyclohexyl", "tert-butyl", "sec-butyl",
+    "isopropyl", "isobutyl", "methyl", "ethyl", "propyl", "butyl", "pentyl", "hexyl", "heptyl", "octyl",
+    "vinyl", "allyl", "ethynyl", "ethenyl", "propenyl", "phenyl", "benzyl", "naphthyl", "tolyl",
+    "acetyl", "formyl", "benzoyl", "carboxy", "carbamoyl", "methoxycarbonyl", "ethoxycarbonyl",
+]
+_STEMS = sorted(list(_PREFIX_ELEMENTS) + _CARBON_PREFIXES, key=len, reverse=True)
+_MULT = r"(?:tetrakis|pentakis|hexakis|tris|bis|tetra|penta|hexa|hepta|octa|tri|di)?"
+_ONE_LOC = r"(?!tert|sec|iso|neo|cis|trans)(?:[0-9]+[a-z]{0,2}|[A-Z]|[a-z]{3,7})['\u2032]*"
+_BRACKET_LOC_RE = re.compile(r"(?:" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-(?= )")
+_PREFIX_RE = re.compile(r"(?:(" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-)?(" + _MULT + r")(" + "|".join(map(re.escape, _STEMS)) + r")-?")
+
+
+def _blank_nested(text: str) -> str:
+    """Replace bracket groups with spaces (same length) so offsets are preserved."""
+    out, depth = [], 0
+    for ch in text:
+        if ch in _OPEN:
+            depth += 1; out.append(" ")
+        elif ch in _CLOSE:
+            depth = max(0, depth - 1); out.append(" ")
+        else:
+            out.append(ch if depth == 0 else " ")
+    return "".join(out)
+
+
+def _attached_group(mol, seed: int, k: int, fid: list, frags: list, elements) -> set:
+    """Atoms of the substituent hanging off `seed` that is not part of numbered fragment k."""
+    def outside(j):
+        return fid[j] in (-2, -1) or (frags[j] == "hetero" and fid[j] == k)
+    out = set()
+    for nb in mol.GetAtomWithIdx(seed).GetNeighbors():
+        j = nb.GetIdx()
+        if not outside(j) or (elements and nb.GetSymbol() not in elements):
+            continue
+        grp, front = {j}, [j]
+        while front:
+            a = front.pop()
+            for nb2 in mol.GetAtomWithIdx(a).GetNeighbors():
+                b = nb2.GetIdx()
+                if b != seed and b not in grp and outside(b):
+                    grp.add(b); front.append(b)
+        out |= grp
+    return out
+
+
+def _regions(name: str, mol, locs: list, fid: list, frags: list) -> list:
+    """
+    Map character ranges of the name onto atoms.  Three kinds:
+      group  -- a bracketed substituent (k-th bracket in closing order <-> fragment id k),
+                including anything nested inside it;
+      prefix -- an unbracketed substituent prefix placed by its own locant(s);
+      parent -- the parent hydride word (whatever is left at depth 0 once prefixes are peeled).
+    """
+    groups = _bracket_groups(name)
+    regions = []
+    n = len(locs)
+    # bracketed groups, with nested groups folded in
+    for k, (o, c, _d) in enumerate(groups, 1):
+        atoms = {i for i in range(n) if fid[i] == k}
+        for j, (oj, cj, _dj) in enumerate(groups, 1):
+            if o < oj and cj < c:
+                atoms |= {i for i in range(n) if fid[i] == j}
+        regions.append({"start": o, "end": c + 1, "atoms": sorted(atoms), "kind": "group", "label": name[o:c + 1]})
+
+    def peel(text_start: int, text_end: int, k: int):
+        """Peel recognised prefixes from name[text_start:text_end] at fragment k; return end of last prefix."""
+        seg = _blank_nested(name[text_start:text_end])
+        pos, last = 0, 0
+        while pos < len(seg):
+            mb = _BRACKET_LOC_RE.match(seg, pos)
+            if seg[pos] == " " or mb:         # a nested bracket group (with its locants): skip it and a following hyphen
+                pos = mb.end() if mb else pos
+                while pos < len(seg) and seg[pos] == " ":
+                    pos += 1
+                if pos < len(seg) and seg[pos] == "-":
+                    pos += 1
+                last = pos
+                continue
+            m = _PREFIX_RE.match(seg, pos)
+            if not m:
+                break
+            loc_run, _mult, stem = m.group(1), m.group(2), m.group(3)
+            atoms = set()
+            if loc_run:
+                for L in loc_run.replace("\u2032", "'").split(","):
+                    for a in range(n):
+                        if fid[a] == k and locs[a] == L:
+                            atoms |= _attached_group(mol, a, k, fid, frags, _PREFIX_ELEMENTS.get(stem))
+            if atoms:
+                regions.append({"start": text_start + m.start(), "end": text_start + m.end() - (1 if m.group(0).endswith("-") else 0),
+                                "atoms": sorted(atoms), "kind": "prefix", "label": name[text_start + m.start():text_start + m.end()].rstrip("-")})
+            pos = last = m.end()
+        return text_start + last
+
+    # prefixes inside each bracket group, at that group's fragment id
+    for k, (o, c, _d) in enumerate(groups, 1):
+        peel(o + 1, c, k)
+    # depth-0 prefixes, then the parent word is what remains
+    start = peel(0, len(name), 0)
+    claimed = set()
+    for g in regions:
+        if g["kind"] == "prefix" and _depth_at(name, g["start"]) == 0:
+            claimed |= set(g["atoms"])
+    parent_atoms = sorted(i for i in range(n) if fid[i] == 0 and i not in claimed)
+    if parent_atoms and start < len(name):
+        regions.append({"start": start, "end": len(name), "atoms": parent_atoms, "kind": "parent", "label": name[start:]})
+    # a bracketed group is the whole substituent: fold in its nested prefixes and take its own locants
+    for g in regions:
+        if g["kind"] != "group":
+            continue
+        inner = set(g["atoms"])
+        for h in regions:
+            if h["kind"] == "prefix" and g["start"] <= h["start"] and h["end"] <= g["end"]:
+                inner |= set(h["atoms"])
+        g["atoms"] = sorted(inner)
+        mloc = re.search(r"(?:" + _ONE_LOC + r"(?:," + _ONE_LOC + r")*)-$", name[:g["start"]])
+        if mloc and _depth_at(name, mloc.start()) == _depth_at(name, g["start"]):
+            g["start"] = mloc.start(); g["label"] = name[g["start"]:g["end"]]
+    return regions
+
+
 def attach_locants(entry: NameEntry, target: Chem.Mol, cml_el) -> None:
     """Fill entry.locants / fragments / spans from the OPSIN CML for entry.name."""
     om, av, ranks = opsin.cml_to_mol(cml_el)
@@ -242,6 +376,7 @@ def attach_locants(entry: NameEntry, target: Chem.Mol, cml_el) -> None:
         locs[ti] = av[oi]; frags[ti] = kind_o[oi]; fid[ti] = fid_o[oi]
     entry.locants, entry.fragments, entry.fragment_ids = locs, frags, fid
     entry.spans = _spans(entry.name, locs, fid, sub_ids)
+    entry.regions = _regions(entry.name, target, locs, fid, frags)
 
 
 # ----------------------------------------------------------------------------- style ranking
