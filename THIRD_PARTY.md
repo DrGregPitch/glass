@@ -5,7 +5,7 @@ those present when this file was generated; see `requirements.txt` for constrain
 
 | Component | Role in Glass | Version | License | Source |
 |---|---|---|---|---|
-| OPSIN (Open Parser for Systematic IUPAC Nomenclature), Daniel Lowe et al., University of Cambridge | Parses IUPAC/systematic names to structures; provides per-atom locants used for the numbering overlay | 2.9.0 (jar bundled by py2opsin) | MIT | https://github.com/dan2097/opsin — Lowe, D. M.; Corbett, P. T.; Murray-Rust, P.; Glen, R. C. *J. Chem. Inf. Model.* **2011**, 51, 739–753 |
+| OPSIN (Open Parser for Systematic IUPAC Nomenclature), Daniel Lowe et al., University of Cambridge | Parses IUPAC/systematic names to structures; provides per-atom locants used for the numbering overlay. `vendor/opsin-shim` is a small class compiled into OPSIN's package that runs its parse pipeline and reports each token's atoms (the word→atom map behind name hover) and parses with radicals allowed (substituent names) | 2.9.0 (jar bundled by py2opsin) | MIT | https://github.com/dan2097/opsin — Lowe, D. M.; Corbett, P. T.; Murray-Rust, P.; Glen, R. C. *J. Chem. Inf. Model.* **2011**, 51, 739–753 |
 | py2opsin | Ships the OPSIN jar; we only use its file location | 1.2.0 | MIT | https://github.com/JacksonBurns/py2opsin |
 | RDKit | Cheminformatics toolkit: structure handling, canonical SMILES/InChI, 2D and 3D coordinates, descriptors | 2026.3.6 | BSD-3-Clause | https://www.rdkit.org |
 | InChI Trust library (via RDKit) | Standard InChI / InChIKey used for every identity check | bundled | IUPAC/InChI Trust Licence | https://www.inchi-trust.org |
